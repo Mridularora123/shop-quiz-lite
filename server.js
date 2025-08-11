@@ -1,12 +1,14 @@
-/* Minimal Shopify Product Quiz (Proxy-style)
- * Quick start:
- * 1) Set env vars in .env (SHOPIFY_SHOP, PUBLIC_URL, optionally STOREFRONT_API_TOKEN)
- * 2) Deploy to Render (Web Service, Node 18+). Build cmd: none. Start cmd: node server.js
- * 3) In Shopify Admin -> Settings -> Apps and sales channels -> Develop apps -> Your app:
- *    - App proxy: Subpath prefix: apps  | Subpath: quiz  | Proxy URL: {PUBLIC_URL}/apps/quiz/proxy
- * 4) Add this tag to theme.liquid (before </body>):
- *    <script src="/apps/quiz/proxy/quiz.js"></script>
+/* Shop Quiz Lite — Express server
+ * Works with Shopify App Proxy using either:
+ *   A) Proxy URL: https://<render>/apps/quiz         (no "/proxy")
+ *      Theme: <script src="/apps/quiz/quiz.js"></script>
+ *      JS fetch: /apps/quiz/config  and  /apps/quiz/recommend
+ *
+ *   B) Proxy URL: https://<render>/apps/quiz/proxy   (with "/proxy")
+ *      Theme: <script src="/apps/quiz/proxy/quiz.js"></script>
+ *      JS fetch: /apps/quiz/proxy/config  and  /apps/quiz/proxy/recommend
  */
+
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -29,94 +31,135 @@ const SHOP = process.env.SHOPIFY_SHOP || "";
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
 const SF_TOKEN = process.env.STOREFRONT_API_TOKEN || "";
 
-// Serve static frontend assets
-app.use("/apps/quiz/proxy", express.static(path.join(__dirname, "public")));
+// -------- Helpers --------
+const publicDir = path.join(__dirname, "public");
+const dataDir = path.join(__dirname, "data");
+const quizJsonPath = path.join(dataDir, "quiz.json");
 
-// Health check
-app.get("/health", (_req, res) => res.json({ ok: true }));
-
-// Load quiz config
 function loadConfig() {
-  const p = path.join(__dirname, "data", "quiz.json");
-  const raw = fs.readFileSync(p, "utf-8");
+  const raw = fs.readFileSync(quizJsonPath, "utf-8");
   return JSON.parse(raw);
 }
 
-// Return quiz config (used by the frontend)
-app.get("/apps/quiz/proxy/config", (_req, res) => {
-  try {
-    const cfg = loadConfig();
-    res.json({ success: true, config: cfg, shop: SHOP });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, error: "Config error" });
+async function buildProductsFromHandles(handles) {
+  // If no Storefront token, just return handles (links will still work)
+  if (!SF_TOKEN || !SHOP) {
+    return handles.map(h => ({ handle: h, title: null, image: null, price: null, currency: null }));
   }
-});
 
-// Recommend products from answers
-app.post("/apps/quiz/proxy/recommend", async (req, res) => {
-  try {
-    const { answers } = req.body || {};
-    const cfg = loadConfig();
+  const endpoint = `https://${SHOP}/api/2024-07/graphql.json`;
+  const out = [];
 
-    // Basic scoring: map answers -> product handles (from quiz.json)
-    const picks = new Set();
-    (answers || []).forEach(({ questionId, value }) => {
-      const rule = (cfg.rules || []).find(r => r.questionId === questionId && String(r.value) === String(value));
-      if (rule && Array.isArray(rule.recommend)) {
-        rule.recommend.forEach(h => picks.add(h));
-      }
-    });
-
-    const handles = Array.from(picks);
-    let products = handles.map(h => ({ handle: h, title: null, image: null, price: null }));
-
-    // Optional: fetch product details via Storefront API if token provided
-    if (SF_TOKEN && SHOP) {
-      const endpoint = `https://${SHOP}/api/2024-07/graphql.json`;
-      products = [];
-      for (const handle of handles) {
-        const q = `
-          query ProductByHandle($handle: String!) {
-            productByHandle(handle: $handle) {
-              title
-              handle
-              featuredImage { url altText }
-              variants(first:1){ edges{ node{ price { amount currencyCode } } } }
-            }
-          }
-        `;
-        const resp = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Shopify-Storefront-Access-Token": SF_TOKEN
-          },
-          body: JSON.stringify({ query: q, variables: { handle } })
-        });
-        const data = await resp.json();
-        const p = data?.data?.productByHandle;
-        if (p) {
-          products.push({
-            handle: p.handle,
-            title: p.title,
-            image: p.featuredImage?.url || null,
-            price: p.variants?.edges?.[0]?.node?.price?.amount || null,
-            currency: p.variants?.edges?.[0]?.node?.price?.currencyCode || null
-          });
-        } else {
-          products.push({ handle });
+  for (const handle of handles) {
+    const query = `
+      query ProductByHandle($handle: String!) {
+        productByHandle(handle: $handle) {
+          title
+          handle
+          featuredImage { url altText }
+          variants(first:1) { edges { node { price { amount currencyCode } } } }
         }
       }
+    `;
+    try {
+      const resp = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Storefront-Access-Token": SF_TOKEN,
+        },
+        body: JSON.stringify({ query, variables: { handle } }),
+      });
+      const data = await resp.json();
+      const p = data?.data?.productByHandle;
+      if (p) {
+        out.push({
+          handle: p.handle,
+          title: p.title,
+          image: p.featuredImage?.url || null,
+          price: p.variants?.edges?.[0]?.node?.price?.amount || null,
+          currency: p.variants?.edges?.[0]?.node?.price?.currencyCode || null,
+        });
+      } else {
+        out.push({ handle, title: null, image: null, price: null, currency: null });
+      }
+    } catch (e) {
+      console.error("Storefront fetch error for", handle, e);
+      out.push({ handle, title: null, image: null, price: null, currency: null });
     }
-
-    res.json({ success: true, products });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, error: "Recommendation failed" });
   }
+
+  return out;
+}
+
+function makeRecommendHandler(basePath = "/apps/quiz") {
+  return async (req, res) => {
+    try {
+      const { answers } = req.body || {};
+      const cfg = loadConfig();
+
+      // Map answers -> product handles using simple rules in data/quiz.json
+      const picks = new Set();
+      (answers || []).forEach(({ questionId, value }) => {
+        const rule = (cfg.rules || []).find(
+          r => r.questionId === questionId && String(r.value) === String(value)
+        );
+        if (rule && Array.isArray(rule.recommend)) {
+          rule.recommend.forEach(h => picks.add(h));
+        }
+      });
+
+      const handles = Array.from(picks);
+      const products = await buildProductsFromHandles(handles);
+
+      res.json({ success: true, products });
+    } catch (e) {
+      console.error("Recommendation failed:", e);
+      res.status(500).json({ success: false, error: "Recommendation failed" });
+    }
+  };
+}
+
+function makeConfigHandler() {
+  return (_req, res) => {
+    try {
+      const cfg = loadConfig();
+      res.json({ success: true, config: cfg, shop: SHOP });
+    } catch (e) {
+      console.error("Config error:", e);
+      res.status(500).json({ success: false, error: "Config error" });
+    }
+  };
+}
+
+// -------- Health & Home --------
+app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/", (_req, res) => {
+  res.send(
+    `<div style="font-family:system-ui;padding:24px">
+      <h2>Shop Quiz Lite</h2>
+      <p>Server running at <code>${PUBLIC_URL}</code></p>
+      <ul>
+        <li>Health: <a href="/health">/health</a></li>
+        <li>Static (no proxy): <a href="/apps/quiz/quiz.js">/apps/quiz/quiz.js</a></li>
+        <li>Config (no proxy): <a href="/apps/quiz/config">/apps/quiz/config</a></li>
+      </ul>
+      <p>If using App Proxy with <code>/proxy</code>, the legacy paths also work.</p>
+    </div>`
+  );
 });
 
+// -------- No-proxy routes (recommended) --------
+app.use("/apps/quiz", express.static(publicDir));
+app.get("/apps/quiz/config", makeConfigHandler());
+app.post("/apps/quiz/recommend", makeRecommendHandler("/apps/quiz"));
+
+// -------- Legacy /proxy routes (kept for compatibility) --------
+app.use("/apps/quiz/proxy", express.static(publicDir));
+app.get("/apps/quiz/proxy/config", makeConfigHandler());
+app.post("/apps/quiz/proxy/recommend", makeRecommendHandler("/apps/quiz/proxy"));
+
+// -------- Start --------
 app.listen(PORT, () => {
   console.log(`Quiz Lite running on ${PUBLIC_URL} (port ${PORT})`);
 });
