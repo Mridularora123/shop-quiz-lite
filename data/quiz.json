@@ -1,0 +1,35 @@
+{
+  "name": "Shop Quiz Lite",
+  "resultsTitle": "Your personalized picks",
+  "questions": [
+    {
+      "id": "goal",
+      "type": "single",
+      "title": "What are you shopping for today?",
+      "subtitle": "Pick the option that best fits",
+      "options": [
+        {"label":"Hydration", "value":"hydrate"},
+        {"label":"Anti-frizz", "value":"anti_frizz"},
+        {"label":"Volume", "value":"volume"}
+      ]
+    },
+    {
+      "id": "budget",
+      "type": "single",
+      "title": "Preferred budget?",
+      "options": [
+        {"label":"$", "value":"low"},
+        {"label":"$$", "value":"mid"},
+        {"label":"$$$", "value":"high"}
+      ]
+    }
+  ],
+  "rules": [
+    { "questionId": "goal", "value": "hydrate", "recommend": ["intense-moisture-shampoo", "deep-hydration-conditioner"] },
+    { "questionId": "goal", "value": "anti_frizz", "recommend": ["smoothing-serum", "anti-frizz-shampoo"] },
+    { "questionId": "goal", "value": "volume", "recommend": ["volumizing-mousse", "root-lift-spray"] },
+    { "questionId": "budget", "value": "low", "recommend": ["travel-size-shampoo"] },
+    { "questionId": "budget", "value": "mid", "recommend": ["best-seller-bundle"] },
+    { "questionId": "budget", "value": "high", "recommend": ["luxury-care-set"] }
+  ]
+}
