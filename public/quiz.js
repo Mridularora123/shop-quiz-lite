@@ -1,6 +1,6 @@
 (function(){
   async function fetchConfig(){
-    const res = await fetch('/apps/quiz/proxy/config');
+    const res = await fetch('/apps/quiz/config');
     return res.json();
   }
 
@@ -56,7 +56,7 @@
         const chosen = document.querySelector(`input[name="${q.id}"]:checked`);
         if (chosen) state.answers.push({ questionId: q.id, value: chosen.value });
       });
-      const res = await fetch('/apps/quiz/proxy/recommend', {
+      const res = await fetch('/apps/quiz/recommend', {
         method: 'POST',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify({ answers: state.answers })
