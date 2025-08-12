@@ -25,21 +25,21 @@
     }
   ],
   "rules": [
-    { "questionId": "goal", "value": "hydrate", "recommend": ["intense-moisture-shampoo", "deep-hydration-conditioner"] },
-    { "questionId": "goal", "value": "anti_frizz", "recommend": ["smoothing-serum", "anti-frizz-shampoo"] },
+    { "questionId": "goal", "value": "hydrate", "recommend": ["eye-stick-2-0"] },
+    { "questionId": "goal", "value": "anti_frizz", "recommend": ["body-lotion", "body-duo"] },
     { "questionId": "goal", "value": "immunity_kit", "recommend": ["immunity-kit", "days-of-the-week-greens", "green-bundle", "standard-bundle"] },
-    { "questionId": "budget", "value": "low", "recommend": ["travel-size-shampoo"] },
-    { "questionId": "budget", "value": "mid", "recommend": ["best-seller-bundle"] },
-    { "questionId": "budget", "value": "high", "recommend": ["luxury-care-set"] }
+    { "questionId": "budget", "value": "low", "recommend": ["hair-and-body-kit-1", "face-wash-travel-size", "days-of-the-week-greens"] },
+    { "questionId": "budget", "value": "mid", "recommend": ["face-and-body-kit", "face-wash", "green-bundle"] },
+    { "questionId": "budget", "value": "high", "recommend": ["hair-and-body-kit", "face-moisturizer", "standard-bundle"] }
   ],
   "combos": [
-    { "when": { "goal": "anti_frizz", "budget": "low"  }, "recommend": ["army-babydoll-dress"] },
-    { "when": { "goal": "anti_frizz", "budget": "mid"  }, "recommend": ["anti-frizz-shampoo"] },
-    { "when": { "goal": "anti_frizz", "budget": "high" }, "recommend": ["luxury-care-set"] },
+    { "when": { "goal": "anti_frizz", "budget": "low"  }, "recommend": ["hair-and-body-kit-1"] },
+    { "when": { "goal": "anti_frizz", "budget": "mid"  }, "recommend": ["face-and-body-kit"] },
+    { "when": { "goal": "anti_frizz", "budget": "high" }, "recommend": ["hair-and-body-kit"] },
 
-    { "when": { "goal": "hydrate", "budget": "low"  }, "recommend": ["travel-size-shampoo"] },
-    { "when": { "goal": "hydrate", "budget": "mid"  }, "recommend": ["deep-hydration-conditioner"] },
-    { "when": { "goal": "hydrate", "budget": "high" }, "recommend": ["intense-moisture-shampoo"] },
+    { "when": { "goal": "hydrate", "budget": "low"  }, "recommend": ["face-wash-travel-size"] },
+    { "when": { "goal": "hydrate", "budget": "mid"  }, "recommend": ["face-wash"] },
+    { "when": { "goal": "hydrate", "budget": "high" }, "recommend": ["face-moisturizer"] },
 
     { "when": { "goal": "immunity_kit", "budget": "low"  }, "recommend": ["days-of-the-week-greens"] },
     { "when": { "goal": "immunity_kit", "budget": "mid"  }, "recommend": ["green-bundle"] },
