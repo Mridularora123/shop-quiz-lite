@@ -373,7 +373,7 @@
     .tone-stop.active{opacity:1;color:#111}
     .tone-wrap{ position:relative; height:26px; margin:0 0 12px 0 }
     .tone-bar{
-      display:block; position:absolute; left:0; right:0; top:7px; height:13px; border-radius:8px;
+      display:block!important; position:absolute; left:0; right:0; top:7px; height:13px; border-radius:8px;
       background:linear-gradient(90deg,#f6e4d2 0%,#f0c7a1 20%,#dea67a 40%,#c9885e 60%,#9a5a3d 80%,#5f3423 100%);
     }
     .tone-range{
