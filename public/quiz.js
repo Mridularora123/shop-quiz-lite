@@ -20,21 +20,11 @@
     return el;
   }
 
-  // Money helper (if you ever pass cents)
-  function moneyFromCents(cents, currency, locale) {
-    try {
-      return new Intl.NumberFormat(locale || 'en-US', { style: 'currency', currency: currency || 'USD' }).format(cents / 100);
-    } catch {
-      return (cents / 100).toFixed(2);
-    }
-  }
-
   // --------- Main renderer ---------
   function renderQuiz(container, cfg) {
     const state = {
       step: 0,
-      // answersMap stores final Q->value pairs **and** synthetic keys for combined layouts
-      // e.g. from Step 1 we write: answersMap['tone'] and answersMap['face']
+      // stores final answers; Step 1 writes tone + face
       answersMap: {}
     };
 
@@ -57,8 +47,8 @@
 
     // ---------- STEP 1: Tone + Faces (combined) ----------
     function renderToneFaces(q, mount) {
-      // Build header
-      mount.appendChild(h('h3', {}, [q.title]));
+      // Title
+      if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
 
       // Slider labels (stops)
@@ -71,18 +61,20 @@
         stops.map((s) => h('span', { class: 'tone-stop' }, [s]))
       );
 
-      // Gradient bar (pure CSS)
+      // Gradient bar (must sit BEFORE the range to let the thumb float over it)
       const bar = h('div', { class: 'tone-bar' });
 
-      // Range input
+      // Determine initial index (restore if user went back)
       let startIndex = 0;
-      // if user came back, restore tone index from stored "tone_*" value
       const savedTone = state.answersMap['tone'];
       if (savedTone && stops.length) {
-        const idx = stops.findIndex((_, i) => `tone_${stops[i].toLowerCase().replace(/\s+/g, '_')}` === savedTone);
+        const idx = stops.findIndex(
+          (_, i) => `tone_${stops[i].toLowerCase().replace(/\s+/g, '_')}` === savedTone
+        );
         if (idx >= 0) startIndex = idx;
       }
 
+      // Range input (thumb only; track is transparent)
       const input = h('input', {
         type: 'range',
         min: 0,
@@ -111,7 +103,6 @@
         }
 
         tile.addEventListener('click', () => {
-          // select face
           grid.querySelectorAll('.is-selected').forEach((el) => el.classList.remove('is-selected'));
           tile.classList.add('is-selected');
           state.answersMap['face'] = String(opt.value);
@@ -121,7 +112,6 @@
         grid.appendChild(tile);
       });
 
-      // Helpers to update UI based on tone index
       function updateToneIndex(idx) {
         // active label
         [...labels.children].forEach((el, j) => el.classList.toggle('active', j === idx));
@@ -130,10 +120,10 @@
           const group = Number(el.getAttribute('data-group') || 0);
           el.classList.toggle('is-dim', group !== idx);
         });
-        // set tone answer
+        // store tone value
         state.answersMap['tone'] = toneKeyFromIndex(idx);
 
-        // if selected face no longer matches group, clear it
+        // if selected face no longer matches, clear it
         const selected = grid.querySelector('.face-tile.is-selected');
         if (selected && Number(selected.getAttribute('data-group') || 0) !== idx) {
           selected.classList.remove('is-selected');
@@ -141,12 +131,13 @@
         }
       }
 
-      // initialize
+      // Mount
       mount.appendChild(labels);
       mount.appendChild(bar);
       mount.appendChild(input);
       mount.appendChild(grid);
 
+      // Init
       updateToneIndex(startIndex);
 
       input.addEventListener('input', () => {
@@ -155,7 +146,7 @@
         validateNext();
       });
 
-      // Next is enabled only when BOTH tone & face are chosen
+      // Next is enabled only when BOTH tone & face are selected
       function validateNext() {
         nextBtn.disabled = !(state.answersMap['tone'] && state.answersMap['face']);
       }
@@ -164,7 +155,7 @@
 
     // ---------- STEP 2: Undertone ----------
     function renderUndertone(q, mount) {
-      mount.appendChild(h('h3', {}, [q.title]));
+      if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
 
       const row = h('div', { class: 'undertone-row' });
@@ -201,15 +192,15 @@
       });
 
       mount.appendChild(row);
-
-      // Always allow continue (matches Rare Beauty); user can pick or skip
-      nextBtn.disabled = false;
+      nextBtn.disabled = false; // allow continue even if skipped (matches the feel)
     }
 
-    // ---------- Default radios/checkboxes (fallback) ----------
+    // ---------- Fallback radios/checkboxes ----------
     function renderDefault(q, mount) {
-      const opts = h('div', { class: 'quiz-lite-options' });
+      if (q.title) mount.appendChild(h('h3', {}, [q.title]));
+      if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
 
+      const opts = h('div', { class: 'quiz-lite-options' });
       (q.options || []).forEach((opt) => {
         const id = `opt-${q.id}-${opt.value}`;
         const input = h('input', {
@@ -241,10 +232,7 @@
           }
         });
 
-        const lbl = h('label', { class: 'quiz-lite-opt', for: id }, [
-          input,
-          h('span', {}, [opt.label])
-        ]);
+        const lbl = h('label', { class: 'quiz-lite-opt', for: id }, [input, h('span', {}, [opt.label])]);
         opts.appendChild(lbl);
       });
 
@@ -270,19 +258,14 @@
       qArea.innerHTML = '';
       if (!q) return;
 
-      // Layout switch
       if (q.layout === 'tone-faces') {
         renderToneFaces(q, qArea);
       } else if (q.layout === 'undertone') {
         renderUndertone(q, qArea);
       } else {
-        // fallback to radios/checkboxes
-        qArea.appendChild(h('h3', {}, [q.title || '']));
-        if (q.subtitle) qArea.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
         renderDefault(q, qArea);
       }
 
-      // Nav + dots
       renderDots();
       prevBtn.style.display = state.step === 0 ? 'none' : 'inline-block';
       nextBtn.textContent = state.step === cfg.questions.length - 1 ? 'See results' : 'Continue';
@@ -292,11 +275,8 @@
     function answersArray() {
       const arr = [];
       for (const [questionId, value] of Object.entries(state.answersMap)) {
-        if (Array.isArray(value)) {
-          value.forEach((v) => arr.push({ questionId, value: v }));
-        } else if (value != null) {
-          arr.push({ questionId, value });
-        }
+        if (Array.isArray(value)) value.forEach((v) => arr.push({ questionId, value: v }));
+        else if (value != null) arr.push({ questionId, value });
       }
       return arr;
     }
@@ -333,11 +313,9 @@
       box.appendChild(h('h3', {}, [cfg.resultsTitle || 'Your best shade matches']));
       const grid = h('div', { class: 'quiz-lite-grid' });
 
-      if (!products.length) {
-        grid.innerHTML = `<p>No matches yet — try different answers.</p>`;
-      } else {
-        grid.innerHTML = products.map(cardHtml).join('');
-      }
+      grid.innerHTML = products.length
+        ? products.map(cardHtml).join('')
+        : `<p>No matches yet — try different answers.</p>`;
 
       box.appendChild(grid);
       container.appendChild(box);
@@ -345,7 +323,7 @@
 
     // ---------- Events ----------
     nextBtn.addEventListener('click', () => {
-      if (state.step < cfg.questions.length - 1) {
+      if (state.step < (cfg.questions?.length || 0) - 1) {
         state.step++;
         showStep();
       } else {
@@ -373,30 +351,53 @@
     renderQuiz(mount, resp.config);
   }
 
-  // --------- Styles (minimal, Rare Beauty-inspired) ---------
+  // --------- Styles (Rare Beauty–style Step 1 gradient + thumb) ---------
   const css = `
-    .quiz-lite-wrapper{border:1px solid #eee;padding:16px;border-radius:16px;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
-    .quiz-lite-nav{display:flex;gap:8px;justify-content:space-between;margin-top:16px}
-    .quiz-lite-btn{padding:10px 18px;border:1px solid #ddd;border-radius:999px;background:#fff;cursor:pointer;letter-spacing:.2em;font-weight:700}
+    .quiz-lite-wrapper{border:1px solid #eee;padding:24px;border-radius:20px;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
+    .quiz-lite-nav{display:flex;gap:8px;justify-content:space-between;margin-top:18px}
+    .quiz-lite-btn{padding:12px 20px;border:1px solid #ddd;border-radius:999px;background:#fff;cursor:pointer;letter-spacing:.2em;font-weight:700}
     .quiz-dots{display:flex;gap:6px;justify-content:center;margin:14px 0}
     .quiz-dot{width:6px;height:6px;border-radius:50%;background:#ddd;display:inline-block}
     .quiz-dot.active{background:#7a1d3c}
-
     .q-sub{margin:6px 0 12px;color:#555}
 
-    /* Step 1: Tone slider + faces */
-    .tone-stops{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:11px;letter-spacing:.1em}
+    /* Step 1: labels + continuous gradient bar + thumb over bar */
+    .tone-stops{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:11px;letter-spacing:.12em}
     .tone-stop{opacity:.7}
     .tone-stop.active{opacity:1;color:#111;font-weight:700}
-    .tone-bar{height:10px;border-radius:8px;margin-bottom:10px;
-      background: linear-gradient(90deg, #fbe7da 0%, #f3c19f 20%, #d99d78 40%, #c27a52 60%, #8e5235 80%, #5b2c1d 100%);
+    .tone-bar{
+      height:8px;border-radius:8px;margin-bottom:12px;
+      background: linear-gradient(
+        90deg,
+        #f6e4d2 0%,
+        #f0c7a1 20%,
+        #dea67a 40%,
+        #c9885e 60%,
+        #9a5a3d 80%,
+        #5f3423 100%
+      );
+      position: relative;
     }
-    input.tone-range{width:100%;appearance:none;height:0;margin:0 0 12px 0}
+    input.tone-range{
+      width:100%;
+      appearance:none;
+      background:transparent;   /* hide track */
+      margin: -20px 0 12px 0;   /* pull thumb over the gradient bar */
+      height:0;                 /* track-less */
+    }
+    input.tone-range::-webkit-slider-runnable-track{background:transparent;height:0}
+    input.tone-range::-moz-range-track{background:transparent;height:0}
+
+    /* Thumb */
     input.tone-range::-webkit-slider-thumb{
-      -webkit-appearance:none; appearance:none;width:18px;height:18px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 0 2px #111;cursor:pointer;margin-top:-9px
+      -webkit-appearance:none; appearance:none;
+      width:18px;height:18px;border-radius:50%;
+      background:#111;border:2px solid #fff;box-shadow:0 0 0 2px #111;
+      cursor:pointer; margin-top:0;
     }
     input.tone-range::-moz-range-thumb{
-      width:18px;height:18px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 0 2px #111;cursor:pointer
+      width:18px;height:18px;border-radius:50%;
+      background:#111;border:2px solid #fff;box-shadow:0 0 0 2px #111;cursor:pointer
     }
 
     .faces-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
@@ -407,7 +408,7 @@
     .face-tile.is-dim::after{content:'';position:absolute;inset:0;background:#fff;opacity:.65;pointer-events:none}
     .face-tile.is-selected{outline:2px solid #7a1d3c;outline-offset:-2px}
 
-    /* Step 2: Undertone */
+    /* Step 2: Undertone cards */
     .undertone-row{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:12px}
     @media (max-width: 780px){ .undertone-row{grid-template-columns:1fr} }
     .undertone-card{display:block;border:1px solid #eee;border-radius:12px;padding:16px 16px 18px 16px;background:#fff;cursor:pointer;position:relative}
