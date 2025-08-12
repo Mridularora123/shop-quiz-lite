@@ -1,39 +1,57 @@
 {
-  "name": "Shop Quiz Lite",
-  "resultsTitle": "Your personalized picks",
+  "name": "Shade Finder",
+  "resultsTitle": "Your best shade matches",
   "questions": [
     {
-      "id": "tone",
+      "id": "tonefaces",
       "type": "single",
-      "layout": "slider",
+      "layout": "tone-faces",
       "title": "Choose the group that best represents your skin tone.",
       "stops": ["LIGHT", "LIGHT MEDIUM", "MEDIUM", "MEDIUM TAN", "MEDIUM DEEP", "DEEP"],
       "options": [
-        {"label":"Light","value":"tone_light"},
-        {"label":"Light Medium","value":"tone_light_medium"},
-        {"label":"Medium","value":"tone_medium"},
-        {"label":"Medium Tan","value":"tone_medium_tan"},
-        {"label":"Medium Deep","value":"tone_medium_deep"},
-        {"label":"Deep","value":"tone_deep"}
+        { "label": "Face 1", "value": "face_a", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-100w.webp?v=1754998672", "group": 0 },
+        { "label": "Face 2", "value": "face_b", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-210n.webp?v=1754998671", "group": 1 },
+        { "label": "Face 3", "value": "face_c", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672", "group": 2 },
+        { "label": "Face 4", "value": "face_d", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672", "group": 2 },
+        { "label": "Face 5", "value": "face_e", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672", "group": 3 },
+        { "label": "Face 6", "value": "face_f", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672", "group": 3 },
+        { "label": "Face 7", "value": "face_g", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672", "group": 4 },
+        { "label": "Face 8", "value": "face_h", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672", "group": 4 },
+        { "label": "Face 9", "value": "face_i", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 },
+        { "label": "Face 10", "value": "face_j", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 }
       ]
     },
     {
-      "id": "face",
+      "id": "undertone",
       "type": "single",
-      "layout": "image-grid",
-      "title": "Pick the face closest to yours",
+      "layout": "undertone",
+      "title": "What’s your Undertone?",
+      "subtitle": "Choose the group that best represents your skin tone.",
       "options": [
-        {"label":"A","value":"face_a","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-100w.webp?v=1754998672"},
-        {"label":"B","value":"face_b","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-210n.webp?v=1754998671"},
-        {"label":"C","value":"face_c","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672"},
-        {"label":"D","value":"face_d","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672"},
-        {"label":"E","value":"face_e","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672"},
-        {"label":"F","value":"face_f","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672"}
+        {
+          "label": "WARM",
+          "value": "undertone_warm",
+          "desc": "On the yellow–peach–golden side.",
+          "color": "#d48c76"
+        },
+        {
+          "label": "NEUTRAL",
+          "value": "undertone_neutral",
+          "desc": "Not too pink, not too yellow—kind of both.",
+          "color": "#b9c7c9"
+        },
+        {
+          "label": "COOL",
+          "value": "undertone_cool",
+          "desc": "On the pink, red, blue side.",
+          "color": "#b8a6f3"
+        }
       ]
     }
   ],
   "rules": [
-    { "questionId":"tone","value":"tone_medium","recommend":["immunity-kit"] },
-    { "questionId":"face","value":"face_b","recommend":["standard-bundle"] }
+    { "questionId": "tone", "value": "tone_medium", "recommend": ["standard-bundle"] },
+    { "questionId": "face", "value": "face_b", "recommend": ["best-seller-set"] },
+    { "questionId": "undertone", "value": "undertone_warm", "recommend": ["warm-kit"] }
   ]
 }
