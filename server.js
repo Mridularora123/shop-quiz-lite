@@ -148,19 +148,42 @@ function makeConfigHandler() {
 // -------- Health & Home --------
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.get("/", (_req, res) => {
-  res.send(
-    `<div style="font-family:system-ui;padding:24px">
-      <h2>Shop Quiz Lite</h2>
-      <p>Server running at <code>${PUBLIC_URL}</code></p>
-      <ul>
-        <li>Health: <a href="/health">/health</a></li>
-        <li>Static (no proxy): <a href="/apps/quiz/quiz.js">/apps/quiz/quiz.js</a></li>
-        <li>Config (no proxy): <a href="/apps/quiz/config">/apps/quiz/config</a></li>
-      </ul>
-      <p>If using App Proxy with <code>/proxy</code>, the legacy paths also work.</p>
-    </div>`
-  );
+  res.send(`
+<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body{font-family:system-ui;margin:0;padding:24px}
+  .wrap{max-width:900px;margin:0 auto}
+  a.btn,button.btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;text-decoration:none}
+  ul{line-height:1.9}
+</style>
+<div class="wrap">
+  <h2>Shop Quiz Lite</h2>
+  <p>Server running at <code>${PUBLIC_URL}</code></p>
+  <ul>
+    <li>Health: <a href="/health" target="_blank">/health</a></li>
+    <li>Static (no proxy): <a href="/apps/quiz/quiz.js" target="_blank">/apps/quiz/quiz.js</a></li>
+    <li>Config (no proxy): <a href="/apps/quiz/config" target="_blank">/apps/quiz/config</a></li>
+  </ul>
+
+  <hr style="margin:20px 0" />
+  <h3>Admin</h3>
+  <p>Edit questions, options, and product mappings.</p>
+  <div style="display:flex;gap:8px;align-items:center">
+    <input id="pw" type="password" placeholder="Enter admin password" style="padding:10px;border:1px solid #ddd;border-radius:10px;min-width:260px" />
+    <button class="btn" id="open">Open editor</button>
+  </div>
+</div>
+<script>
+  document.getElementById('open').onclick = function(){
+    var p = document.getElementById('pw').value || '';
+    if(!p){ alert('Enter the admin password'); return; }
+    // stay inside the Shopify app iframe
+    window.location.href = '/apps/quiz/admin?p=' + encodeURIComponent(p);
+  };
+</script>
+  `);
 });
+
 
 // -------- No-proxy routes (recommended) --------
 app.use("/apps/quiz", express.static(publicDir));
