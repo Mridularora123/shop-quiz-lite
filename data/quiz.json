@@ -12,13 +12,9 @@
         { "label": "Face 1", "value": "face_a", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-100w.webp?v=1754998672", "group": 0 },
         { "label": "Face 2", "value": "face_b", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-210n.webp?v=1754998671", "group": 1 },
         { "label": "Face 3", "value": "face_c", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672", "group": 2 },
-        { "label": "Face 4", "value": "face_d", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672", "group": 2 },
         { "label": "Face 5", "value": "face_e", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672", "group": 3 },
-        { "label": "Face 6", "value": "face_f", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672", "group": 3 },
         { "label": "Face 7", "value": "face_g", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672", "group": 4 },
-        { "label": "Face 8", "value": "face_h", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672", "group": 4 },
-        { "label": "Face 9", "value": "face_i", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 },
-        { "label": "Face 10", "value": "face_j", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 }
+        { "label": "Face 9", "value": "face_i", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 }
       ]
     },
     {
