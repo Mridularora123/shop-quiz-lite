@@ -1,11 +1,11 @@
 (function () {
-  // --------- API ---------
+  // -------- API --------
   async function fetchConfig() {
     const res = await fetch('/apps/quiz/config');
     return res.json();
   }
 
-  // --------- DOM helper ---------
+  // -------- DOM helper --------
   function h(tag, attrs = {}, children = []) {
     const el = document.createElement(tag);
     Object.entries(attrs).forEach(([k, v]) => {
@@ -20,25 +20,22 @@
     return el;
   }
 
-  // --------- Main renderer ---------
+  // -------- Main --------
   function renderQuiz(container, cfg) {
     const state = {
       step: 0,
-      // stores final answers; Step 1 writes tone + face
-      answersMap: {}
+      answersMap: {} // final answers; Step 1 writes tone + face
     };
 
     // Shell
     const wrapper = h('div', { class: 'quiz-lite-wrapper' });
     const qArea = h('div', { class: 'quiz-lite-question' });
     const dots = h('div', { class: 'quiz-dots', role: 'tablist', 'aria-label': 'Progress' });
-
     const nav = h('div', { class: 'quiz-lite-nav' });
     const prevBtn = h('button', { class: 'quiz-lite-btn', type: 'button' }, ['Previous']);
     const nextBtn = h('button', { class: 'quiz-lite-btn', type: 'button' }, ['Continue']);
     nav.appendChild(prevBtn);
     nav.appendChild(nextBtn);
-
     wrapper.appendChild(qArea);
     wrapper.appendChild(dots);
     wrapper.appendChild(nav);
@@ -47,24 +44,24 @@
 
     // ---------- STEP 1: Tone + Faces (combined) ----------
     function renderToneFaces(q, mount) {
-      // Title
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
 
-      // Slider labels (stops)
       const stops = Array.isArray(q.stops) ? q.stops : [];
       const maxIndex = Math.max(0, (stops.length || 1) - 1);
 
+      // labels row (clickable)
       const labels = h(
         'div',
         { class: 'tone-stops' },
-        stops.map((s) => h('span', { class: 'tone-stop' }, [s]))
+        stops.map((s) => h('button', { class: 'tone-stop', type: 'button' }, [s]))
       );
 
-      // Gradient bar (must sit BEFORE the range to let the thumb float over it)
+      // gradient + slider inside a positioned wrapper
+      const toneWrap = h('div', { class: 'tone-wrap' });
       const bar = h('div', { class: 'tone-bar' });
 
-      // Determine initial index (restore if user went back)
+      // initial index from saved tone (if returning to step)
       let startIndex = 0;
       const savedTone = state.answersMap['tone'];
       if (savedTone && stops.length) {
@@ -74,7 +71,6 @@
         if (idx >= 0) startIndex = idx;
       }
 
-      // Range input (thumb only; track is transparent)
       const input = h('input', {
         type: 'range',
         min: 0,
@@ -85,24 +81,27 @@
         'aria-label': 'Skin tone group'
       });
 
-      function toneKeyFromIndex(i) {
-        const raw = stops[i] || `group_${i}`;
-        return `tone_${raw.toLowerCase().replace(/\s+/g, '_')}`;
-      }
+      toneWrap.appendChild(bar);
+      toneWrap.appendChild(input);
 
-      // Faces grid
+      // faces grid
       const grid = h('div', { class: 'faces-grid' });
       (q.options || []).forEach((opt) => {
         const tile = h('button', { class: 'face-tile', type: 'button', 'data-group': String(opt.group ?? 0) }, [
           h('img', { src: opt.image || '', alt: opt.label || 'face' })
         ]);
-
         // restore face selection
         if (state.answersMap['face'] && String(state.answersMap['face']) === String(opt.value)) {
           tile.classList.add('is-selected');
         }
 
+        // clicking a face moves the slider to that face's group and selects it
         tile.addEventListener('click', () => {
+          const idx = Number(tile.getAttribute('data-group') || 0);
+          // move thumb
+          input.value = String(idx);
+          updateToneIndex(idx);
+          // select face
           grid.querySelectorAll('.is-selected').forEach((el) => el.classList.remove('is-selected'));
           tile.classList.add('is-selected');
           state.answersMap['face'] = String(opt.value);
@@ -112,18 +111,23 @@
         grid.appendChild(tile);
       });
 
+      // helpers
+      function toneKeyFromIndex(i) {
+        const raw = stops[i] || `group_${i}`;
+        return `tone_${raw.toLowerCase().replace(/\s+/g, '_')}`;
+      }
+
       function updateToneIndex(idx) {
-        // active label
+        // labels active state
         [...labels.children].forEach((el, j) => el.classList.toggle('active', j === idx));
         // dim non-matching faces
         grid.querySelectorAll('.face-tile').forEach((el) => {
           const group = Number(el.getAttribute('data-group') || 0);
           el.classList.toggle('is-dim', group !== idx);
         });
-        // store tone value
+        // store tone
         state.answersMap['tone'] = toneKeyFromIndex(idx);
-
-        // if selected face no longer matches, clear it
+        // if selected face not in this group, clear it
         const selected = grid.querySelector('.face-tile.is-selected');
         if (selected && Number(selected.getAttribute('data-group') || 0) !== idx) {
           selected.classList.remove('is-selected');
@@ -131,13 +135,21 @@
         }
       }
 
-      // Mount
+      // clicking a tone label moves the slider and sets tone
+      [...labels.children].forEach((btn, idx) => {
+        btn.addEventListener('click', () => {
+          input.value = String(idx);
+          updateToneIndex(idx);
+          validateNext();
+        });
+      });
+
+      // mount
       mount.appendChild(labels);
-      mount.appendChild(bar);
-      mount.appendChild(input);
+      mount.appendChild(toneWrap);
       mount.appendChild(grid);
 
-      // Init
+      // init
       updateToneIndex(startIndex);
 
       input.addEventListener('input', () => {
@@ -146,7 +158,7 @@
         validateNext();
       });
 
-      // Next is enabled only when BOTH tone & face are selected
+      // Continue only when both tone & face are chosen
       function validateNext() {
         nextBtn.disabled = !(state.answersMap['tone'] && state.answersMap['face']);
       }
@@ -167,7 +179,14 @@
         const bar = h('div', { class: 'undertone-bar' });
         if (opt.color) bar.style.background = opt.color;
 
-        const radio = h('input', { type: 'radio', id, name: 'undertone', value: String(opt.value), class: 'sr-only' });
+        const radio = h('input', {
+          type: 'radio',
+          id,
+          name: 'undertone',
+          value: String(opt.value),
+          class: 'sr-only'
+        });
+
         if (state.answersMap['undertone'] && String(state.answersMap['undertone']) === String(opt.value)) {
           radio.checked = true;
           card.classList.add('is-selected');
@@ -186,16 +205,16 @@
         card.appendChild(h('div', { class: 'undertone-dot' }));
         card.appendChild(title);
         card.appendChild(desc);
-
         card.appendChild(radio);
+
         row.appendChild(card);
       });
 
       mount.appendChild(row);
-      nextBtn.disabled = false; // allow continue even if skipped (matches the feel)
+      nextBtn.disabled = false; // allow continue even if skipped
     }
 
-    // ---------- Fallback radios/checkboxes ----------
+    // ---------- Fallback ----------
     function renderDefault(q, mount) {
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
@@ -240,7 +259,7 @@
       nextBtn.disabled = false;
     }
 
-    // ---------- Step rendering ----------
+    // ---------- Step render ----------
     function renderDots() {
       dots.innerHTML = '';
       (cfg.questions || []).forEach((_, i) => {
@@ -271,26 +290,7 @@
       nextBtn.textContent = state.step === cfg.questions.length - 1 ? 'See results' : 'Continue';
     }
 
-    // ---------- Submit ----------
-    function answersArray() {
-      const arr = [];
-      for (const [questionId, value] of Object.entries(state.answersMap)) {
-        if (Array.isArray(value)) value.forEach((v) => arr.push({ questionId, value: v }));
-        else if (value != null) arr.push({ questionId, value });
-      }
-      return arr;
-    }
-
-    async function submit() {
-      const res = await fetch('/apps/quiz/recommend', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: answersArray() })
-      });
-      const data = await res.json().catch(() => ({ success: false }));
-      showResults((data && data.products) || []);
-    }
-
+    // ---------- Results ----------
     function cardHtml(p) {
       const title = p.title || (p.handle ? p.handle.replace(/-/g, ' ') : 'Product');
       const url = p.handle ? `/products/${p.handle}` : '#';
@@ -307,21 +307,29 @@
       `;
     }
 
+    async function submit() {
+      const res = await fetch('/apps/quiz/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: Object.entries(state.answersMap).flatMap(([qid, val]) =>
+          Array.isArray(val) ? val.map(v => ({ questionId: qid, value: v })) : [{ questionId: qid, value: val }]
+        ) })
+      });
+      const data = await res.json().catch(() => ({ success: false }));
+      showResults((data && data.products) || []);
+    }
+
     function showResults(products) {
       container.innerHTML = '';
       const box = h('div', { class: 'quiz-lite-results' });
       box.appendChild(h('h3', {}, [cfg.resultsTitle || 'Your best shade matches']));
       const grid = h('div', { class: 'quiz-lite-grid' });
-
-      grid.innerHTML = products.length
-        ? products.map(cardHtml).join('')
-        : `<p>No matches yet — try different answers.</p>`;
-
+      grid.innerHTML = products.length ? products.map(cardHtml).join('') : `<p>No matches yet — try different answers.</p>`;
       box.appendChild(grid);
       container.appendChild(box);
     }
 
-    // ---------- Events ----------
+    // ---------- Nav events ----------
     nextBtn.addEventListener('click', () => {
       if (state.step < (cfg.questions?.length || 0) - 1) {
         state.step++;
@@ -330,7 +338,6 @@
         submit();
       }
     });
-
     prevBtn.addEventListener('click', () => {
       if (state.step > 0) {
         state.step--;
@@ -338,11 +345,10 @@
       }
     });
 
-    // First render
     showStep();
   }
 
-  // --------- Bootstrap ---------
+  // -------- Bootstrap --------
   async function init() {
     const mount = document.querySelector('[data-quiz-lite]') || document.getElementById('shop-quiz');
     if (!mount) return;
@@ -351,7 +357,7 @@
     renderQuiz(mount, resp.config);
   }
 
-  // --------- Styles (Rare Beauty–style Step 1 gradient + thumb) ---------
+  // -------- Styles --------
   const css = `
     .quiz-lite-wrapper{border:1px solid #eee;padding:24px;border-radius:20px;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
     .quiz-lite-nav{display:flex;gap:8px;justify-content:space-between;margin-top:18px}
@@ -361,43 +367,30 @@
     .quiz-dot.active{background:#7a1d3c}
     .q-sub{margin:6px 0 12px;color:#555}
 
-    /* Step 1: labels + continuous gradient bar + thumb over bar */
+    /* Step 1: tone labels + gradient + slider thumb */
     .tone-stops{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:11px;letter-spacing:.12em}
-    .tone-stop{opacity:.7}
-    .tone-stop.active{opacity:1;color:#111;font-weight:700}
+    .tone-stop{opacity:.65;border:0;background:none;cursor:pointer;padding:0;font-weight:700}
+    .tone-stop.active{opacity:1;color:#111}
+    .tone-wrap{ position:relative; height:26px; margin:0 0 12px 0 }
     .tone-bar{
-      height:8px;border-radius:8px;margin-bottom:12px;
-      background: linear-gradient(
-        90deg,
-        #f6e4d2 0%,
-        #f0c7a1 20%,
-        #dea67a 40%,
-        #c9885e 60%,
-        #9a5a3d 80%,
-        #5f3423 100%
-      );
-      position: relative;
+      position:absolute; left:0; right:0; top:9px; height:8px; border-radius:8px;
+      background:linear-gradient(90deg,#f6e4d2 0%,#f0c7a1 20%,#dea67a 40%,#c9885e 60%,#9a5a3d 80%,#5f3423 100%);
     }
-    input.tone-range{
-      width:100%;
-      appearance:none;
-      background:transparent;   /* hide track */
-      margin: -20px 0 12px 0;   /* pull thumb over the gradient bar */
-      height:0;                 /* track-less */
+    .tone-range{
+      position:absolute; left:0; right:0; top:0; height:26px;
+      appearance:none; background:transparent; margin:0; padding:0;
     }
-    input.tone-range::-webkit-slider-runnable-track{background:transparent;height:0}
-    input.tone-range::-moz-range-track{background:transparent;height:0}
-
-    /* Thumb */
-    input.tone-range::-webkit-slider-thumb{
+    .tone-range::-webkit-slider-runnable-track{ background:transparent; height:26px }
+    .tone-range::-moz-range-track{ background:transparent; height:26px }
+    .tone-range::-ms-track{ background:transparent; border-color:transparent; color:transparent; height:26px }
+    .tone-range::-webkit-slider-thumb{
       -webkit-appearance:none; appearance:none;
-      width:18px;height:18px;border-radius:50%;
-      background:#111;border:2px solid #fff;box-shadow:0 0 0 2px #111;
-      cursor:pointer; margin-top:0;
+      width:18px; height:18px; border-radius:50%;
+      background:#111; border:2px solid #fff; box-shadow:0 0 0 2px #111; cursor:pointer; margin-top:4px;
     }
-    input.tone-range::-moz-range-thumb{
-      width:18px;height:18px;border-radius:50%;
-      background:#111;border:2px solid #fff;box-shadow:0 0 0 2px #111;cursor:pointer
+    .tone-range::-moz-range-thumb{
+      width:18px; height:18px; border-radius:50%;
+      background:#111; border:2px solid #fff; box-shadow:0 0 0 2px #111; cursor:pointer;
     }
 
     .faces-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
@@ -408,7 +401,7 @@
     .face-tile.is-dim::after{content:'';position:absolute;inset:0;background:#fff;opacity:.65;pointer-events:none}
     .face-tile.is-selected{outline:2px solid #7a1d3c;outline-offset:-2px}
 
-    /* Step 2: Undertone cards */
+    /* Step 2: Undertone */
     .undertone-row{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:12px}
     @media (max-width: 780px){ .undertone-row{grid-template-columns:1fr} }
     .undertone-card{display:block;border:1px solid #eee;border-radius:12px;padding:16px 16px 18px 16px;background:#fff;cursor:pointer;position:relative}
