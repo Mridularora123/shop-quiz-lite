@@ -111,16 +111,31 @@ function makeRecommendHandler() {
       const { answers } = req.body || {};
       const cfg = loadConfig();
 
-      // Map answers -> product handles using simple rules in data/quiz.json
+      // Build quick lookup: { goal: 'anti_frizz', budget: 'low', ... }
+      const aMap = {};
+      (answers || []).forEach(a => { aMap[a.questionId] = String(a.value); });
+
       const picks = new Set();
-      (answers || []).forEach(({ questionId, value }) => {
-        const rule = (cfg.rules || []).find(
-          r => r.questionId === questionId && String(r.value) === String(value)
-        );
-        if (rule && Array.isArray(rule.recommend)) {
-          rule.recommend.forEach(h => picks.add(h));
+
+      // 1) Try COMBO rules first (AND)
+      const combos = Array.isArray(cfg.combos) ? cfg.combos : [];
+      for (const c of combos) {
+        const when = c?.when || {};
+        const allMatch = Object.entries(when).every(([qid, val]) => String(aMap[qid]) === String(val));
+        if (allMatch && Array.isArray(c.recommend)) {
+          c.recommend.forEach(h => picks.add(h));
         }
-      });
+      }
+
+      // 2) If no combo matched, fall back to single-question rules (OR/union)
+      if (picks.size === 0) {
+        (cfg.rules || []).forEach(r => {
+          if (!r || !r.questionId) return;
+          if (String(aMap[r.questionId]) === String(r.value) && Array.isArray(r.recommend)) {
+            r.recommend.forEach(h => picks.add(h));
+          }
+        });
+      }
 
       const handles = Array.from(picks);
       const products = await buildProductsFromHandles(handles);
@@ -132,6 +147,7 @@ function makeRecommendHandler() {
     }
   };
 }
+
 
 function makeConfigHandler() {
   return (_req, res) => {

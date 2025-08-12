@@ -31,5 +31,14 @@
     { "questionId": "budget", "value": "low", "recommend": ["travel-size-shampoo"] },
     { "questionId": "budget", "value": "mid", "recommend": ["best-seller-bundle"] },
     { "questionId": "budget", "value": "high", "recommend": ["luxury-care-set"] }
+  ],
+  "combos": [
+    { "when": { "goal": "anti_frizz", "budget": "low"  }, "recommend": ["army-babydoll-dress"] },
+    { "when": { "goal": "anti_frizz", "budget": "mid"  }, "recommend": ["anti-frizz-shampoo"] },
+    { "when": { "goal": "anti_frizz", "budget": "high" }, "recommend": ["luxury-care-set"] },
+
+    { "when": { "goal": "hydrate", "budget": "low"  }, "recommend": ["travel-size-shampoo"] },
+    { "when": { "goal": "hydrate", "budget": "mid"  }, "recommend": ["deep-hydration-conditioner"] },
+    { "when": { "goal": "hydrate", "budget": "high" }, "recommend": ["intense-moisture-shampoo"] }
   ]
 }
