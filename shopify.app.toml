@@ -1,0 +1,13 @@
+name = "shop-quiz-lite"
+client_id = "cdfb22ca2db0eedb1d28668c8bf339fc" # Your Client ID from Shopify Partners
+application_url = "https://shop-quiz-lite.onrender.com"
+embedded = true
+
+[access_scopes]
+scopes = "write_products,read_metafields,write_metafields"
+
+[auth]
+redirect_urls = [
+  "https://shop-quiz-lite.onrender.com/auth/callback",
+  "https://shop-quiz-lite.onrender.com/api/auth/callback"
+]
