@@ -9,12 +9,12 @@
       "title": "Choose the group that best represents your skin tone.",
       "stops": ["LIGHT", "LIGHT MEDIUM", "MEDIUM", "MEDIUM TAN", "MEDIUM DEEP", "DEEP"],
       "options": [
-        { "label": "Face 1", "value": "face_a", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-100w.webp?v=1754998672", "group": 0 },
-        { "label": "Face 2", "value": "face_b", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-210n.webp?v=1754998671", "group": 1 },
-        { "label": "Face 3", "value": "face_c", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672", "group": 2 },
-        { "label": "Face 5", "value": "face_e", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672", "group": 3 },
-        { "label": "Face 7", "value": "face_g", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672", "group": 4 },
-        { "label": "Face 9", "value": "face_i", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 }
+        { "label": "Face 1", "value": "tone_light", "image": "face1.webp", "group": 0 },
+        { "label": "Face 2", "value": "tone_light_medium", "image": "face2.webp", "group": 1 },
+        { "label": "Face 3", "value": "tone_medium", "image": "face3.webp", "group": 2 },
+        { "label": "Face 5", "value": "tone_medium_tan", "image": "face5.webp", "group": 3 },
+        { "label": "Face 7", "value": "tone_medium_deep", "image": "face7.webp", "group": 4 },
+        { "label": "Face 9", "value": "tone_deep", "image": "face9.webp", "group": 5 }
       ]
     },
     {
@@ -22,32 +22,37 @@
       "type": "single",
       "layout": "undertone",
       "title": "What’s your Undertone?",
-      "subtitle": "Choose the group that best represents your skin tone.",
       "options": [
-        {
-          "label": "WARM",
-          "value": "undertone_warm",
-          "desc": "On the yellow–peach–golden side.",
-          "color": "#d48c76"
-        },
-        {
-          "label": "NEUTRAL",
-          "value": "undertone_neutral",
-          "desc": "Not too pink, not too yellow—kind of both.",
-          "color": "#b9c7c9"
-        },
-        {
-          "label": "COOL",
-          "value": "undertone_cool",
-          "desc": "On the pink, red, blue side.",
-          "color": "#b8a6f3"
-        }
+        { "label": "WARM",    "value": "undertone_warm",    "desc": "Yellow–peach–golden side.", "color": "#d48c76" },
+        { "label": "NEUTRAL", "value": "undertone_neutral", "desc": "Not too pink, not too yellow.", "color": "#b9c7c9" },
+        { "label": "COOL",    "value": "undertone_cool",    "desc": "Pink, red, or blue side.", "color": "#b8a6f3" }
       ]
     }
   ],
-  "rules": [
-    { "questionId": "tone", "value": "tone_medium", "recommend": ["standard-bundle"] },
-    { "questionId": "face", "value": "face_b", "recommend": ["best-seller-set"] },
-    { "questionId": "undertone", "value": "undertone_warm", "recommend": ["warm-kit"] }
+
+  "combos": [
+    { "when": { "tonefaces": "tone_light", "undertone": "undertone_warm" },    "recommend": ["body-lotion"] },
+    { "when": { "tonefaces": "tone_light", "undertone": "undertone_neutral" }, "recommend": ["body-duo"] },
+    { "when": { "tonefaces": "tone_light", "undertone": "undertone_cool" },    "recommend": ["green-bundle"] },
+
+    { "when": { "tonefaces": "tone_light_medium", "undertone": "undertone_warm" },    "recommend": ["body-lotion"] },
+    { "when": { "tonefaces": "tone_light_medium", "undertone": "undertone_neutral" }, "recommend": ["body-duo"] },
+    { "when": { "tonefaces": "tone_light_medium", "undertone": "undertone_cool" },    "recommend": ["green-bundle"] },
+
+    { "when": { "tonefaces": "tone_medium", "undertone": "undertone_warm" },    "recommend": ["body-lotion"] },
+    { "when": { "tonefaces": "tone_medium", "undertone": "undertone_neutral" }, "recommend": ["body-duo"] },
+    { "when": { "tonefaces": "tone_medium", "undertone": "undertone_cool" },    "recommend": ["green-bundle"] },
+
+    { "when": { "tonefaces": "tone_medium_tan", "undertone": "undertone_warm" },    "recommend": ["body-lotion"] },
+    { "when": { "tonefaces": "tone_medium_tan", "undertone": "undertone_neutral" }, "recommend": ["body-duo"] },
+    { "when": { "tonefaces": "tone_medium_tan", "undertone": "undertone_cool" },    "recommend": ["green-bundle"] },
+
+    { "when": { "tonefaces": "tone_medium_deep", "undertone": "undertone_warm" },    "recommend": ["body-lotion"] },
+    { "when": { "tonefaces": "tone_medium_deep", "undertone": "undertone_neutral" }, "recommend": ["body-duo"] },
+    { "when": { "tonefaces": "tone_medium_deep", "undertone": "undertone_cool" },    "recommend": ["green-bundle"] },
+
+    { "when": { "tonefaces": "tone_deep", "undertone": "undertone_warm" },    "recommend": ["body-lotion"] },
+    { "when": { "tonefaces": "tone_deep", "undertone": "undertone_neutral" }, "recommend": ["body-duo"] },
+    { "when": { "tonefaces": "tone_deep", "undertone": "undertone_cool" },    "recommend": ["green-bundle"] }
   ]
 }

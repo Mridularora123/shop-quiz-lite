@@ -307,17 +307,56 @@
       `;
     }
 
-    async function submit() {
-      const res = await fetch('/apps/quiz/recommend', {
+    function submit() {
+      // 1) Local combos mapping (instant check)
+      const map = { ...state.answersMap };
+
+      function matchCombos(combos, answersMap) {
+        if (!Array.isArray(combos)) return null;
+        for (const combo of combos) {
+          const when = combo.when || {};
+          let ok = true;
+          for (const [k, expected] of Object.entries(when)) {
+            if (String(answersMap[k]) !== String(expected)) { ok = false; break; }
+          }
+          if (ok) return combo.recommend || [];
+        }
+        return null;
+      }
+
+      const handles = matchCombos(cfg.combos, map);
+
+      if (handles && handles.length) {
+        const products = handles.map(handle => ({
+          handle,
+          title: handle.replace(/-/g, ' '),
+          image: `https://via.placeholder.com/600x600?text=${encodeURIComponent(handle)}`,
+          price: null,
+          currency: null
+        }));
+        showResults(products);
+        return;
+      }
+
+      // 2) Fallback API call if no combo matched
+      fetch('/apps/quiz/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answers: Object.entries(state.answersMap).flatMap(([qid, val]) =>
-          Array.isArray(val) ? val.map(v => ({ questionId: qid, value: v })) : [{ questionId: qid, value: val }]
-        ) })
-      });
-      const data = await res.json().catch(() => ({ success: false }));
-      showResults((data && data.products) || []);
+        body: JSON.stringify({
+          answers: Object.entries(state.answersMap).flatMap(([qid, val]) =>
+            Array.isArray(val) ? val.map(v => ({ questionId: qid, value: v })) : [{ questionId: qid, value: val }]
+          )
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          showResults((data && data.products) || []);
+        })
+        .catch(() => {
+          showResults([]);
+        });
     }
+
 
     function showResults(products) {
       container.innerHTML = '';
