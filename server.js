@@ -53,7 +53,7 @@ function loadConfig() {
 }
 
 async function buildProductsFromHandles(handles) {
-  // If no Storefront token, just return handles (links will still work)
+  // If you haven't set a Storefront token we can only return handles
   if (!SF_TOKEN || !SHOP) {
     return handles.map(h => ({
       handle: h, title: null, image: null, price: null, currency: null
@@ -69,11 +69,19 @@ async function buildProductsFromHandles(handles) {
         productByHandle(handle: $handle) {
           title
           handle
-          featuredImage { url altText }
-          variants(first:1) { edges { node { price { amount currencyCode } } } }
+          featuredImage { url }
+          images(first: 1) { edges { node { url } } }   # fallback if no featured image
+          variants(first: 1) {
+            edges {
+              node {
+                price { amount currencyCode }          # price & currency
+              }
+            }
+          }
         }
       }
     `;
+
     try {
       const resp = await fetch(endpoint, {
         method: "POST",
@@ -83,17 +91,27 @@ async function buildProductsFromHandles(handles) {
         },
         body: JSON.stringify({ query, variables: { handle } }),
       });
+
       const data = await resp.json();
       const p = data?.data?.productByHandle;
+
       if (p) {
+        const firstImg =
+          p.featuredImage?.url ||
+          p.images?.edges?.[0]?.node?.url ||
+          null;
+
+        const priceNode = p.variants?.edges?.[0]?.node?.price;
+
         out.push({
           handle: p.handle,
-          title: p.title,
-          image: p.featuredImage?.url || null,
-          price: p.variants?.edges?.[0]?.node?.price?.amount || null,
-          currency: p.variants?.edges?.[0]?.node?.price?.currencyCode || null,
+          title: p.title || null,
+          image: firstImg,
+          price: priceNode?.amount || null,
+          currency: priceNode?.currencyCode || null,
         });
       } else {
+        // product not found (wrong handle or not published)
         out.push({ handle, title: null, image: null, price: null, currency: null });
       }
     } catch (e) {
@@ -104,6 +122,7 @@ async function buildProductsFromHandles(handles) {
 
   return out;
 }
+
 
 function makeRecommendHandler() {
   return async (req, res) => {
