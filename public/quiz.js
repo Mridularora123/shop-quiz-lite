@@ -373,7 +373,7 @@
     .tone-stop.active{opacity:1;color:#111}
     .tone-wrap{ position:relative; height:26px; margin:0 0 12px 0 }
     .tone-bar{
-      position:absolute; left:0; right:0; top:9px; height:8px; border-radius:8px;
+      display:block; position:absolute; left:0; right:0; top:7px; height:13px; border-radius:8px;
       background:linear-gradient(90deg,#f6e4d2 0%,#f0c7a1 20%,#dea67a 40%,#c9885e 60%,#9a5a3d 80%,#5f3423 100%);
     }
     .tone-range{
@@ -414,7 +414,7 @@
 
     /* Results */
     .quiz-lite-results{max-width:1100px;margin:0 auto}
-    .quiz-lite-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+    .quiz-lite-grid{display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:16px}
     .ql-card{border:1px solid #eee;border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;display:block;background:#fff}
     .ql-img img{display:block;width:100%;height:220px;object-fit:cover}
     .ql-info{padding:12px}
