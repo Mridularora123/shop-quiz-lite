@@ -3,46 +3,37 @@
   "resultsTitle": "Your personalized picks",
   "questions": [
     {
-      "id": "goal",
+      "id": "tone",
       "type": "single",
-      "title": "What are you shopping for today?",
-      "subtitle": "Pick the option that best fits",
+      "layout": "slider",
+      "title": "Choose the group that best represents your skin tone.",
+      "stops": ["LIGHT", "LIGHT MEDIUM", "MEDIUM", "MEDIUM TAN", "MEDIUM DEEP", "DEEP"],
       "options": [
-        {"label":"Hydration", "value":"hydrate"},
-        {"label":"Anti-frizz", "value":"anti_frizz"},
-        {"label":"Immunity Kit", "value":"immunity_kit"}
+        {"label":"Light","value":"tone_light"},
+        {"label":"Light Medium","value":"tone_light_medium"},
+        {"label":"Medium","value":"tone_medium"},
+        {"label":"Medium Tan","value":"tone_medium_tan"},
+        {"label":"Medium Deep","value":"tone_medium_deep"},
+        {"label":"Deep","value":"tone_deep"}
       ]
     },
     {
-      "id": "budget",
+      "id": "face",
       "type": "single",
-      "title": "Preferred budget?",
+      "layout": "image-grid",
+      "title": "Pick the face closest to yours",
       "options": [
-        {"label":"$", "value":"low"},
-        {"label":"$$", "value":"mid"},
-        {"label":"$$$", "value":"high"}
+        {"label":"A","value":"face_a","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-100w.webp?v=1754998672"},
+        {"label":"B","value":"face_b","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-210n.webp?v=1754998671"},
+        {"label":"C","value":"face_c","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672"},
+        {"label":"D","value":"face_d","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672"},
+        {"label":"E","value":"face_e","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672"},
+        {"label":"F","value":"face_f","image":"https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672"}
       ]
     }
   ],
   "rules": [
-    { "questionId": "goal", "value": "hydrate", "recommend": ["eye-stick-2-0"] },
-    { "questionId": "goal", "value": "anti_frizz", "recommend": ["body-lotion", "body-duo"] },
-    { "questionId": "goal", "value": "immunity_kit", "recommend": ["immunity-kit", "days-of-the-week-greens", "green-bundle", "standard-bundle"] },
-    { "questionId": "budget", "value": "low", "recommend": ["hair-and-body-kit-1", "face-wash-travel-size", "days-of-the-week-greens"] },
-    { "questionId": "budget", "value": "mid", "recommend": ["face-and-body-kit", "face-wash", "green-bundle"] },
-    { "questionId": "budget", "value": "high", "recommend": ["hair-and-body-kit", "face-moisturizer", "standard-bundle"] }
-  ],
-  "combos": [
-    { "when": { "goal": "anti_frizz", "budget": "low"  }, "recommend": ["hair-and-body-kit-1"] },
-    { "when": { "goal": "anti_frizz", "budget": "mid"  }, "recommend": ["face-and-body-kit"] },
-    { "when": { "goal": "anti_frizz", "budget": "high" }, "recommend": ["hair-and-body-kit"] },
-
-    { "when": { "goal": "hydrate", "budget": "low"  }, "recommend": ["face-wash-travel-size"] },
-    { "when": { "goal": "hydrate", "budget": "mid"  }, "recommend": ["face-wash"] },
-    { "when": { "goal": "hydrate", "budget": "high" }, "recommend": ["face-moisturizer"] },
-
-    { "when": { "goal": "immunity_kit", "budget": "low"  }, "recommend": ["days-of-the-week-greens"] },
-    { "when": { "goal": "immunity_kit", "budget": "mid"  }, "recommend": ["green-bundle"] },
-    { "when": { "goal": "immunity_kit", "budget": "high" }, "recommend": ["standard-bundle"] }
+    { "questionId":"tone","value":"tone_medium","recommend":["immunity-kit"] },
+    { "questionId":"face","value":"face_b","recommend":["standard-bundle"] }
   ]
 }
