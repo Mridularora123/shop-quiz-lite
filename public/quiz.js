@@ -89,7 +89,7 @@
           type: 'button',
           'data-group': String(opt.group ?? 0),
           'aria-label': opt.label || 'face'
-        }, [ h('img', { src: opt.image || '', alt: opt.label || 'face' }) ]);
+        }, [h('img', { src: opt.image || '', alt: opt.label || 'face' })]);
 
         // restore selected
         if (state.answersMap[q.id] && String(state.answersMap[q.id]) === String(opt.value)) {
@@ -288,7 +288,7 @@
       const title = p.title || (p.handle ? p.handle.replace(/-/g, ' ') : 'Product');
       const url = p.handle ? `/products/${p.handle}` : '#';
       const img = p.image || `https://via.placeholder.com/600x600?text=${encodeURIComponent(title)}`;
-      const price = p.price && p.currency ? `${p.price} ${p.currency}` : '';
+      const price = (p.price != null) ? formatMoney(p.price, p.currency) : '';
       return `
         <a class="ql-card" href="${url}">
           <div class="ql-img"><img src="${img}" alt="${title}"></div>
@@ -300,11 +300,64 @@
       `;
     }
 
+    function detectCurrency() {
+      try {
+        if (window.Shopify && Shopify.currency && Shopify.currency.active) return Shopify.currency.active;
+      } catch (_) { }
+      const m =
+        document.querySelector('meta[itemprop="priceCurrency"]') ||
+        document.querySelector('meta[property="og:price:currency"]');
+      return m ? m.getAttribute('content') : '';
+    }
+
+    function formatMoney(amount, currency) {
+      if (amount == null) return '';
+      const n = Number(amount);
+      if (Number.isNaN(n)) return '';
+      // amount is in major units (e.g. 12.34). If you feed cents, divide by 100 first.
+      return `${currency ? currency + ' ' : ''}${n.toFixed(2)}`;
+    }
+
+    function fetchProductByHandle(handle) {
+      // Public Shopify endpoint, no token needed
+      return fetch(`/products/${handle}.js`)
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(p => {
+          const img =
+            (Array.isArray(p.images) && p.images[0]) ||
+            p.featured_image ||
+            `https://via.placeholder.com/600x600?text=${encodeURIComponent(p.title || handle)}`;
+
+          const firstVar = Array.isArray(p.variants) && p.variants[0] ? p.variants[0] : null;
+          // Shopify .js returns price in CENTS (integer)
+          const priceMajor = firstVar && typeof firstVar.price === 'number'
+            ? firstVar.price / 100
+            : (firstVar && typeof firstVar.price === 'string'
+              ? Number(firstVar.price) / 100
+              : null);
+
+          return {
+            handle,
+            title: p.title || handle.replace(/-/g, ' '),
+            image: img,
+            price: priceMajor,
+            currency: detectCurrency()
+          };
+        })
+        .catch(() => ({
+          handle,
+          title: handle.replace(/-/g, ' '),
+          image: `https://via.placeholder.com/600x600?text=${encodeURIComponent(handle)}`,
+          price: null,
+          currency: ''
+        }));
+    }
+
+
     /* =========================
        Submit: combos first, fallback to API
     ========================== */
     function submit() {
-      // First try local combos mapping
       function matchCombos(combos, answersMap) {
         if (!Array.isArray(combos)) return null;
         for (const combo of combos) {
@@ -318,19 +371,26 @@
       }
 
       const handles = matchCombos(cfg.combos, state.answersMap);
+
       if (handles && handles.length) {
-        const products = handles.map(handle => ({
-          handle,
-          title: handle.replace(/-/g, ' '),
-          image: `https://via.placeholder.com/600x600?text=${encodeURIComponent(handle)}`,
-          price: null,
-          currency: null
-        }));
-        showResults(products);
+        Promise
+          .all(handles.map(h => fetchProductByHandle(h)))
+          .then(products => { showResults(products); })
+          .catch(() => {
+            // graceful fallback to simple placeholders if something fails
+            const products = handles.map(handle => ({
+              handle,
+              title: handle.replace(/-/g, ' '),
+              image: `https://via.placeholder.com/600x600?text=${encodeURIComponent(handle)}`,
+              price: null,
+              currency: ''
+            }));
+            showResults(products);
+          });
         return;
       }
 
-      // Fallback: your original backend (safe to keep)
+      // Fallback to backend if no combo matched
       fetch('/apps/quiz/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -338,9 +398,9 @@
           answers: Object.entries(state.answersMap).map(([qid, val]) => ({ questionId: qid, value: val }))
         })
       })
-      .then(res => res.json())
-      .then(data => { showResults((data && data.products) || []); })
-      .catch(() => { showResults([]); });
+        .then(res => res.json())
+        .then(data => { showResults((data && data.products) || []); })
+        .catch(() => { showResults([]); });
     }
 
     function showResults(products) {
