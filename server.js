@@ -53,14 +53,18 @@ function loadConfig() {
 }
 
 async function buildProductsFromHandles(handles) {
-  // If you haven't set a Storefront token we can only return handles
-  if (!SF_TOKEN || !SHOP) {
+  // Normalize shop domain: remove protocol and trailing slash
+  const shopDomain = (SHOP || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+
+  // If token or shop are missing, return bare handles so the UI can still link
+  if (!SF_TOKEN || !shopDomain) {
+    console.warn("[Quiz] Missing SF token or shop domain. Returning handles only.");
     return handles.map(h => ({
       handle: h, title: null, image: null, price: null, currency: null
     }));
   }
 
-  const endpoint = `https://${SHOP}/api/2024-07/graphql.json`;
+  const endpoint = `https://${shopDomain}/api/2024-07/graphql.json`;
   const out = [];
 
   for (const handle of handles) {
@@ -92,11 +96,24 @@ async function buildProductsFromHandles(handles) {
         body: JSON.stringify({ query, variables: { handle } }),
       });
 
+      if (!resp.ok) {
+        console.error("[Quiz] Storefront HTTP error", resp.status, await resp.text());
+        out.push({ handle, title: null, image: null, price: null, currency: null });
+        continue;
+      }
+
       const data = await resp.json();
+
+      if (data.errors) {
+        console.error("[Quiz] Storefront GraphQL errors", data.errors);
+        out.push({ handle, title: null, image: null, price: null, currency: null });
+        continue;
+      }
+
       const p = data?.data?.productByHandle;
 
       if (p) {
-        const firstImg =
+        const img =
           p.featuredImage?.url ||
           p.images?.edges?.[0]?.node?.url ||
           null;
@@ -106,22 +123,23 @@ async function buildProductsFromHandles(handles) {
         out.push({
           handle: p.handle,
           title: p.title || null,
-          image: firstImg,
+          image: img,
           price: priceNode?.amount || null,
           currency: priceNode?.currencyCode || null,
         });
       } else {
-        // product not found (wrong handle or not published)
+        // product not found (wrong handle or not published to Online Store)
         out.push({ handle, title: null, image: null, price: null, currency: null });
       }
     } catch (e) {
-      console.error("Storefront fetch error for", handle, e);
+      console.error("[Quiz] Storefront fetch error for", handle, e);
       out.push({ handle, title: null, image: null, price: null, currency: null });
     }
   }
 
   return out;
 }
+
 
 
 function makeRecommendHandler() {
