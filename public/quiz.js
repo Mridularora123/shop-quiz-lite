@@ -1,11 +1,15 @@
 (function () {
-  // -------- API --------
+  /* =========================
+     Fetch config (quiz.json)
+  ========================== */
   async function fetchConfig() {
     const res = await fetch('/apps/quiz/config');
     return res.json();
   }
 
-  // -------- DOM helper --------
+  /* =========================
+     Small DOM helper
+  ========================== */
   function h(tag, attrs = {}, children = []) {
     const el = document.createElement(tag);
     Object.entries(attrs).forEach(([k, v]) => {
@@ -20,11 +24,13 @@
     return el;
   }
 
-  // -------- Main --------
+  /* =========================
+     Main renderer
+  ========================== */
   function renderQuiz(container, cfg) {
     const state = {
       step: 0,
-      answersMap: {} // final answers; Step 1 writes tone + face
+      answersMap: {} // will store: { tonefaces: 'tone_light', undertone: 'undertone_warm' }
     };
 
     // Shell
@@ -42,7 +48,10 @@
     container.innerHTML = '';
     container.appendChild(wrapper);
 
-    // ---------- STEP 1: Tone + Faces (combined) ----------
+    /* =========================
+       Step 1: Tone slider + Faces
+       - Stores answer under q.id === "tonefaces"
+    ========================== */
     function renderToneFaces(q, mount) {
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
@@ -50,128 +59,109 @@
       const stops = Array.isArray(q.stops) ? q.stops : [];
       const maxIndex = Math.max(0, (stops.length || 1) - 1);
 
-      // labels row (clickable)
+      // Clickable tone labels
       const labels = h(
         'div',
         { class: 'tone-stops' },
         stops.map((s) => h('button', { class: 'tone-stop', type: 'button' }, [s]))
       );
 
-      // gradient + slider inside a positioned wrapper
+      // Gradient bar + range thumb inside positioned wrapper
       const toneWrap = h('div', { class: 'tone-wrap' });
       const bar = h('div', { class: 'tone-bar' });
-
-      // initial index from saved tone (if returning to step)
-      let startIndex = 0;
-      const savedTone = state.answersMap['tone'];
-      if (savedTone && stops.length) {
-        const idx = stops.findIndex(
-          (_, i) => `tone_${stops[i].toLowerCase().replace(/\s+/g, '_')}` === savedTone
-        );
-        if (idx >= 0) startIndex = idx;
-      }
-
       const input = h('input', {
         type: 'range',
         min: 0,
         max: String(maxIndex),
         step: 1,
-        value: String(startIndex),
+        value: '0',
         class: 'tone-range',
         'aria-label': 'Skin tone group'
       });
-
       toneWrap.appendChild(bar);
       toneWrap.appendChild(input);
 
-      // faces grid
+      // Faces grid
       const grid = h('div', { class: 'faces-grid' });
       (q.options || []).forEach((opt) => {
-        const tile = h('button', { class: 'face-tile', type: 'button', 'data-group': String(opt.group ?? 0) }, [
-          h('img', { src: opt.image || '', alt: opt.label || 'face' })
-        ]);
-        // restore face selection
-        if (state.answersMap['face'] && String(state.answersMap['face']) === String(opt.value)) {
+        const tile = h('button', {
+          class: 'face-tile',
+          type: 'button',
+          'data-group': String(opt.group ?? 0),
+          'aria-label': opt.label || 'face'
+        }, [ h('img', { src: opt.image || '', alt: opt.label || 'face' }) ]);
+
+        // restore selected
+        if (state.answersMap[q.id] && String(state.answersMap[q.id]) === String(opt.value)) {
           tile.classList.add('is-selected');
         }
 
-        // clicking a face moves the slider to that face's group and selects it
+        // clicking a face selects it AND moves thumb to its group
         tile.addEventListener('click', () => {
           const idx = Number(tile.getAttribute('data-group') || 0);
-          // move thumb
           input.value = String(idx);
           updateToneIndex(idx);
-          // select face
+
           grid.querySelectorAll('.is-selected').forEach((el) => el.classList.remove('is-selected'));
           tile.classList.add('is-selected');
-          state.answersMap['face'] = String(opt.value);
+
+          // store under tonefaces (matches your combos.when key)
+          state.answersMap[q.id] = String(opt.value);
           validateNext();
         });
 
         grid.appendChild(tile);
       });
 
-      // helpers
-      function toneKeyFromIndex(i) {
-        const raw = stops[i] || `group_${i}`;
-        return `tone_${raw.toLowerCase().replace(/\s+/g, '_')}`;
-      }
-
       function updateToneIndex(idx) {
-        // labels active state
+        // Active label
         [...labels.children].forEach((el, j) => el.classList.toggle('active', j === idx));
-        // dim non-matching faces
+        // Dim faces not in this tone group
         grid.querySelectorAll('.face-tile').forEach((el) => {
           const group = Number(el.getAttribute('data-group') || 0);
           el.classList.toggle('is-dim', group !== idx);
         });
-        // store tone
-        state.answersMap['tone'] = toneKeyFromIndex(idx);
-        // if selected face not in this group, clear it
-        const selected = grid.querySelector('.face-tile.is-selected');
-        if (selected && Number(selected.getAttribute('data-group') || 0) !== idx) {
-          selected.classList.remove('is-selected');
-          delete state.answersMap['face'];
-        }
       }
 
-      // clicking a tone label moves the slider and sets tone
+      // Clicking label moves thumb + updates dimming
       [...labels.children].forEach((btn, idx) => {
         btn.addEventListener('click', () => {
           input.value = String(idx);
           updateToneIndex(idx);
+          // Note: user must still click a face to choose exact value
           validateNext();
         });
       });
 
-      // mount
+      // Mount
       mount.appendChild(labels);
       mount.appendChild(toneWrap);
       mount.appendChild(grid);
 
-      // init
-      updateToneIndex(startIndex);
+      // Init
+      updateToneIndex(0);
 
       input.addEventListener('input', () => {
         const idx = Number(input.value);
         updateToneIndex(idx);
-        validateNext();
       });
 
-      // Continue only when both tone & face are chosen
+      // enable next only when a face (tonefaces) has been chosen
       function validateNext() {
-        nextBtn.disabled = !(state.answersMap['tone'] && state.answersMap['face']);
+        nextBtn.disabled = !state.answersMap[q.id];
       }
       validateNext();
     }
 
-    // ---------- STEP 2: Undertone ----------
+    /* =========================
+       Step 2: Undertone
+       - Stores answer under "undertone"
+    ========================== */
     function renderUndertone(q, mount) {
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
 
       const row = h('div', { class: 'undertone-row' });
-
       (q.options || []).forEach((opt) => {
         const id = `ut-${opt.value}`;
         const card = h('label', { class: 'undertone-card', for: id });
@@ -182,29 +172,26 @@
         const radio = h('input', {
           type: 'radio',
           id,
-          name: 'undertone',
+          name: q.id, // "undertone"
           value: String(opt.value),
           class: 'sr-only'
         });
 
-        if (state.answersMap['undertone'] && String(state.answersMap['undertone']) === String(opt.value)) {
+        if (state.answersMap[q.id] && String(state.answersMap[q.id]) === String(opt.value)) {
           radio.checked = true;
           card.classList.add('is-selected');
         }
 
         radio.addEventListener('change', () => {
-          state.answersMap['undertone'] = radio.value;
+          state.answersMap[q.id] = radio.value;
           row.querySelectorAll('.undertone-card').forEach((c) => c.classList.remove('is-selected'));
           card.classList.add('is-selected');
         });
 
-        const title = h('div', { class: 'undertone-title' }, [opt.label || '']);
-        const desc = h('div', { class: 'undertone-desc' }, [opt.desc || '']);
-
         card.appendChild(bar);
         card.appendChild(h('div', { class: 'undertone-dot' }));
-        card.appendChild(title);
-        card.appendChild(desc);
+        card.appendChild(h('div', { class: 'undertone-title' }, [opt.label || '']));
+        card.appendChild(h('div', { class: 'undertone-desc' }, [opt.desc || '']));
         card.appendChild(radio);
 
         row.appendChild(card);
@@ -214,7 +201,9 @@
       nextBtn.disabled = false; // allow continue even if skipped
     }
 
-    // ---------- Fallback ----------
+    /* =========================
+       Fallback renderer (radios/checkboxes)
+    ========================== */
     function renderDefault(q, mount) {
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
       if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
@@ -259,7 +248,9 @@
       nextBtn.disabled = false;
     }
 
-    // ---------- Step render ----------
+    /* =========================
+       Progress dots + Step switcher
+    ========================== */
     function renderDots() {
       dots.innerHTML = '';
       (cfg.questions || []).forEach((_, i) => {
@@ -290,7 +281,9 @@
       nextBtn.textContent = state.step === cfg.questions.length - 1 ? 'See results' : 'Continue';
     }
 
-    // ---------- Results ----------
+    /* =========================
+       Results helpers
+    ========================== */
     function cardHtml(p) {
       const title = p.title || (p.handle ? p.handle.replace(/-/g, ' ') : 'Product');
       const url = p.handle ? `/products/${p.handle}` : '#';
@@ -307,16 +300,16 @@
       `;
     }
 
+    /* =========================
+       Submit: combos first, fallback to API
+    ========================== */
     function submit() {
-      // 1) Local combos mapping (instant check)
-      const map = { ...state.answersMap };
-
+      // First try local combos mapping
       function matchCombos(combos, answersMap) {
         if (!Array.isArray(combos)) return null;
         for (const combo of combos) {
-          const when = combo.when || {};
           let ok = true;
-          for (const [k, expected] of Object.entries(when)) {
+          for (const [k, expected] of Object.entries(combo.when || {})) {
             if (String(answersMap[k]) !== String(expected)) { ok = false; break; }
           }
           if (ok) return combo.recommend || [];
@@ -324,8 +317,7 @@
         return null;
       }
 
-      const handles = matchCombos(cfg.combos, map);
-
+      const handles = matchCombos(cfg.combos, state.answersMap);
       if (handles && handles.length) {
         const products = handles.map(handle => ({
           handle,
@@ -338,37 +330,32 @@
         return;
       }
 
-      // 2) Fallback API call if no combo matched
+      // Fallback: your original backend (safe to keep)
       fetch('/apps/quiz/recommend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          answers: Object.entries(state.answersMap).flatMap(([qid, val]) =>
-            Array.isArray(val) ? val.map(v => ({ questionId: qid, value: v })) : [{ questionId: qid, value: val }]
-          )
+          answers: Object.entries(state.answersMap).map(([qid, val]) => ({ questionId: qid, value: val }))
         })
       })
-        .then(res => res.json())
-        .then(data => {
-          showResults((data && data.products) || []);
-        })
-        .catch(() => {
-          showResults([]);
-        });
+      .then(res => res.json())
+      .then(data => { showResults((data && data.products) || []); })
+      .catch(() => { showResults([]); });
     }
-
 
     function showResults(products) {
       container.innerHTML = '';
       const box = h('div', { class: 'quiz-lite-results' });
       box.appendChild(h('h3', {}, [cfg.resultsTitle || 'Your best shade matches']));
       const grid = h('div', { class: 'quiz-lite-grid' });
-      grid.innerHTML = products.length ? products.map(cardHtml).join('') : `<p>No matches yet — try different answers.</p>`;
+      grid.innerHTML = products.length
+        ? products.map(cardHtml).join('')
+        : `<p>No matches yet — try different answers.</p>`;
       box.appendChild(grid);
       container.appendChild(box);
     }
 
-    // ---------- Nav events ----------
+    // Nav
     nextBtn.addEventListener('click', () => {
       if (state.step < (cfg.questions?.length || 0) - 1) {
         state.step++;
@@ -387,7 +374,9 @@
     showStep();
   }
 
-  // -------- Bootstrap --------
+  /* =========================
+     Bootstrap
+  ========================== */
   async function init() {
     const mount = document.querySelector('[data-quiz-lite]') || document.getElementById('shop-quiz');
     if (!mount) return;
@@ -396,9 +385,12 @@
     renderQuiz(mount, resp.config);
   }
 
-  // -------- Styles --------
+  /* =========================
+     Styles (Rare Beauty-ish)
+  ========================== */
   const css = `
     .quiz-lite-wrapper{border:1px solid #eee;padding:24px;border-radius:20px;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
+    .quiz-lite-question h3{margin:0 0 6px 0;font-size:20px}
     .quiz-lite-nav{display:flex;gap:8px;justify-content:space-between;margin-top:18px}
     .quiz-lite-btn{padding:12px 20px;border:1px solid #ddd;border-radius:999px;background:#fff;cursor:pointer;letter-spacing:.2em;font-weight:700}
     .quiz-dots{display:flex;gap:6px;justify-content:center;margin:14px 0}
