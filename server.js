@@ -26,16 +26,27 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Allow embedding inside Shopify Admin iframe
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-ancestors https://*.myshopify.com https://admin.shopify.com;"
+  );
+  next();
+});
+
 const PORT = process.env.PORT || 3000;
 const SHOP = process.env.SHOPIFY_SHOP || "";
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
 const SF_TOKEN = process.env.STOREFRONT_API_TOKEN || "";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
-// -------- Helpers --------
+// -------- Paths --------
 const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const quizJsonPath = path.join(dataDir, "quiz.json");
 
+// -------- Helpers --------
 function loadConfig() {
   const raw = fs.readFileSync(quizJsonPath, "utf-8");
   return JSON.parse(raw);
@@ -44,7 +55,9 @@ function loadConfig() {
 async function buildProductsFromHandles(handles) {
   // If no Storefront token, just return handles (links will still work)
   if (!SF_TOKEN || !SHOP) {
-    return handles.map(h => ({ handle: h, title: null, image: null, price: null, currency: null }));
+    return handles.map(h => ({
+      handle: h, title: null, image: null, price: null, currency: null
+    }));
   }
 
   const endpoint = `https://${SHOP}/api/2024-07/graphql.json`;
@@ -92,7 +105,7 @@ async function buildProductsFromHandles(handles) {
   return out;
 }
 
-function makeRecommendHandler(basePath = "/apps/quiz") {
+function makeRecommendHandler() {
   return async (req, res) => {
     try {
       const { answers } = req.body || {};
@@ -152,12 +165,108 @@ app.get("/", (_req, res) => {
 // -------- No-proxy routes (recommended) --------
 app.use("/apps/quiz", express.static(publicDir));
 app.get("/apps/quiz/config", makeConfigHandler());
-app.post("/apps/quiz/recommend", makeRecommendHandler("/apps/quiz"));
+app.post("/apps/quiz/recommend", makeRecommendHandler());
 
 // -------- Legacy /proxy routes (kept for compatibility) --------
 app.use("/apps/quiz/proxy", express.static(publicDir));
 app.get("/apps/quiz/proxy/config", makeConfigHandler());
-app.post("/apps/quiz/proxy/recommend", makeRecommendHandler("/apps/quiz/proxy"));
+app.post("/apps/quiz/proxy/recommend", makeRecommendHandler());
+
+// ===== Simple Admin Editor (file-based, no Shopify scopes) =====
+function requireAdmin(req, res, next) {
+  const pass = req.headers["x-admin-password"] || req.query.p;
+  if (ADMIN_PASSWORD && pass === ADMIN_PASSWORD) return next();
+  res.status(401).send("Unauthorized");
+}
+
+// Read current config (used by admin UI)
+app.get("/apps/quiz/admin/config", requireAdmin, (_req, res) => {
+  try {
+    const raw = fs.readFileSync(quizJsonPath, "utf-8");
+    res.type("application/json").send(raw);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "read fail" });
+  }
+});
+
+// Save updated config
+app.put("/apps/quiz/admin/config", requireAdmin, (req, res) => {
+  try {
+    const body = req.body;
+    // basic shape check
+    if (!body || !Array.isArray(body.questions) || !Array.isArray(body.rules)) {
+      return res.status(400).json({ error: "Invalid config shape" });
+    }
+    fs.writeFileSync(quizJsonPath, JSON.stringify(body, null, 2), "utf-8");
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "write fail" });
+  }
+});
+
+// Minimal admin UI (textarea JSON editor)
+app.get("/apps/quiz/admin", requireAdmin, (_req, res) => {
+  res.send(`
+<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+  body{font-family:system-ui;margin:0;padding:24px;background:#fff}
+  .wrap{max-width:1000px;margin:0 auto}
+  textarea{width:100%;height:60vh;font-family:ui-monospace,monospace;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
+  .row{display:flex;gap:8px;align-items:center;margin:12px 0}
+  button{padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer}
+  .hint{color:#555}
+</style>
+<div class="wrap">
+  <h2>Quiz Config Editor</h2>
+  <p class="hint">Edit <code>questions</code>, <code>options</code>, and <code>rules</code>. Click <b>Save</b> to publish.</p>
+  <div class="row">
+    <button id="pretty">Pretty</button>
+    <button id="sample">Sample</button>
+    <button id="save">Save</button>
+    <span id="msg"></span>
+  </div>
+  <textarea id="t"></textarea>
+</div>
+<script>
+  const p = new URL(location).searchParams.get("p")||"";
+  async function load(){
+    const r = await fetch("/apps/quiz/admin/config?p="+encodeURIComponent(p));
+    const txt = await r.text();
+    t.value = txt || "{}";
+  }
+  pretty.onclick = ()=>{ try{ t.value = JSON.stringify(JSON.parse(t.value), null, 2) }catch(e){ alert("Invalid JSON") } };
+  sample.onclick = ()=>{ t.value = JSON.stringify({
+    name:"Shop Quiz Lite",
+    resultsTitle:"Your personalized picks",
+    questions:[
+      { id:"goal", type:"single", title:"What are you shopping for today?", subtitle:"Pick the option that best fits",
+        options:[ {label:"Hydration",value:"hydrate"}, {label:"Anti-frizz",value:"anti_frizz"}, {label:"Volume",value:"volume"} ] },
+      { id:"budget", type:"single", title:"Preferred budget?",
+        options:[ {label:"$",value:"low"}, {label:"$$",value:"mid"}, {label:"$$$",value:"high"} ] }
+    ],
+    rules:[
+      { questionId:"goal", value:"hydrate",    recommend:["intense-moisture-shampoo"] },
+      { questionId:"goal", value:"anti_frizz", recommend:["anti-frizz-shampoo"] },
+      { questionId:"goal", value:"volume",     recommend:["root-lift-spray"] },
+      { questionId:"budget", value:"low",      recommend:["travel-size-shampoo"] }
+    ]
+  }, null, 2) };
+  save.onclick = async ()=>{
+    try{
+      const j = JSON.parse(t.value);
+      const r = await fetch("/apps/quiz/admin/config?p="+encodeURIComponent(p),{
+        method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(j)
+      });
+      msg.textContent = r.ok ? "Saved!" : "Failed";
+      setTimeout(()=>msg.textContent="",3000);
+    }catch(e){ alert("Invalid JSON"); }
+  };
+  load();
+</script>
+  `);
+});
 
 // -------- Start --------
 app.listen(PORT, () => {
