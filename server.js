@@ -247,7 +247,6 @@ app.get("/apps/quiz/admin", requireAdmin, (_req, res) => {
   <p class="hint">Edit <code>questions</code>, <code>options</code>, and <code>rules</code>. Click <b>Save</b> to publish.</p>
   <div class="row">
     <button id="pretty">Pretty</button>
-    <button id="sample">Sample</button>
     <button id="save">Save</button>
     <span id="msg"></span>
   </div>
@@ -261,22 +260,6 @@ app.get("/apps/quiz/admin", requireAdmin, (_req, res) => {
     t.value = txt || "{}";
   }
   pretty.onclick = ()=>{ try{ t.value = JSON.stringify(JSON.parse(t.value), null, 2) }catch(e){ alert("Invalid JSON") } };
-  sample.onclick = ()=>{ t.value = JSON.stringify({
-    name:"Shop Quiz Lite",
-    resultsTitle:"Your personalized picks",
-    questions:[
-      { id:"goal", type:"single", title:"What are you shopping for today?", subtitle:"Pick the option that best fits",
-        options:[ {label:"Hydration",value:"hydrate"}, {label:"Anti-frizz",value:"anti_frizz"}, {label:"Volume",value:"volume"} ] },
-      { id:"budget", type:"single", title:"Preferred budget?",
-        options:[ {label:"$",value:"low"}, {label:"$$",value:"mid"}, {label:"$$$",value:"high"} ] }
-    ],
-    rules:[
-      { questionId:"goal", value:"hydrate",    recommend:["intense-moisture-shampoo"] },
-      { questionId:"goal", value:"anti_frizz", recommend:["anti-frizz-shampoo"] },
-      { questionId:"goal", value:"volume",     recommend:["root-lift-spray"] },
-      { questionId:"budget", value:"low",      recommend:["travel-size-shampoo"] }
-    ]
-  }, null, 2) };
   save.onclick = async ()=>{
     try{
       const j = JSON.parse(t.value);
