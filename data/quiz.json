@@ -10,7 +10,7 @@
       "options": [
         {"label":"Hydration", "value":"hydrate"},
         {"label":"Anti-frizz", "value":"anti_frizz"},
-        {"label":"Volume", "value":"volume"}
+        {"label":"Immunity Kit", "value":"immunity_kit"}
       ]
     },
     {
@@ -27,7 +27,7 @@
   "rules": [
     { "questionId": "goal", "value": "hydrate", "recommend": ["intense-moisture-shampoo", "deep-hydration-conditioner"] },
     { "questionId": "goal", "value": "anti_frizz", "recommend": ["smoothing-serum", "anti-frizz-shampoo"] },
-    { "questionId": "goal", "value": "volume", "recommend": ["volumizing-mousse", "root-lift-spray"] },
+    { "questionId": "goal", "value": "immunity_kit", "recommend": ["immunity-kit", "days-of-the-week-greens", "green-bundle", "standard-bundle"] },
     { "questionId": "budget", "value": "low", "recommend": ["travel-size-shampoo"] },
     { "questionId": "budget", "value": "mid", "recommend": ["best-seller-bundle"] },
     { "questionId": "budget", "value": "high", "recommend": ["luxury-care-set"] }
@@ -39,6 +39,10 @@
 
     { "when": { "goal": "hydrate", "budget": "low"  }, "recommend": ["travel-size-shampoo"] },
     { "when": { "goal": "hydrate", "budget": "mid"  }, "recommend": ["deep-hydration-conditioner"] },
-    { "when": { "goal": "hydrate", "budget": "high" }, "recommend": ["intense-moisture-shampoo"] }
+    { "when": { "goal": "hydrate", "budget": "high" }, "recommend": ["intense-moisture-shampoo"] },
+
+    { "when": { "goal": "immunity_kit", "budget": "low"  }, "recommend": ["days-of-the-week-greens"] },
+    { "when": { "goal": "immunity_kit", "budget": "mid"  }, "recommend": ["green-bundle"] },
+    { "when": { "goal": "immunity_kit", "budget": "high" }, "recommend": ["standard-bundle"] }
   ]
 }
