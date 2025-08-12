@@ -168,6 +168,7 @@ app.get("/", (_req, res) => {
   <hr style="margin:20px 0" />
   <h3>Admin</h3>
   <p>Edit questions, options, and product mappings.</p>
+  <p>Use Admin Password : quiz12345</p>
   <div style="display:flex;gap:8px;align-items:center">
     <input id="pw" type="password" placeholder="Enter admin password" style="padding:10px;border:1px solid #ddd;border-radius:10px;min-width:260px" />
     <button class="btn" id="open">Open editor</button>
