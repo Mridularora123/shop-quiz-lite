@@ -9,12 +9,12 @@
       "title": "Choose the group that best represents your skin tone.",
       "stops": ["LIGHT", "LIGHT MEDIUM", "MEDIUM", "MEDIUM TAN", "MEDIUM DEEP", "DEEP"],
       "options": [
-        { "label": "Face 1", "value": "tone_light", "image": "face1.webp", "group": 0 },
-        { "label": "Face 2", "value": "tone_light_medium", "image": "face2.webp", "group": 1 },
-        { "label": "Face 3", "value": "tone_medium", "image": "face3.webp", "group": 2 },
-        { "label": "Face 5", "value": "tone_medium_tan", "image": "face5.webp", "group": 3 },
-        { "label": "Face 7", "value": "tone_medium_deep", "image": "face7.webp", "group": 4 },
-        { "label": "Face 9", "value": "tone_deep", "image": "face9.webp", "group": 5 }
+        { "label": "Face 1", "value": "tone_light", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-100w.webp?v=1754998672", "group": 0 },
+        { "label": "Face 2", "value": "tone_light_medium", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-210n.webp?v=1754998671", "group": 1 },
+        { "label": "Face 3", "value": "tone_medium", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-270n.webp?v=1754998672", "group": 2 },
+        { "label": "Face 5", "value": "tone_medium_tan", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-350c.webp?v=1754998672", "group": 3 },
+        { "label": "Face 7", "value": "tone_medium_deep", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-430w.webp?v=1754998672", "group": 4 },
+        { "label": "Face 9", "value": "tone_deep", "image": "https://cdn.shopify.com/s/files/1/0407/9484/9432/files/shadefinder-model-500n.webp?v=1754998672", "group": 5 }
       ]
     },
     {
