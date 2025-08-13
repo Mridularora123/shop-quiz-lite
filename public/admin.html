@@ -69,7 +69,6 @@
     <div class="modal">
       <h3>Enter Admin Password</h3>
       <p class="muted" style="margin-top:-6px">Used for saving and loading your quiz config.</p>
-      <p>Use Admin Password :- quiz12345</p>
       <div class="row">
         <input id="pwInput" type="password" placeholder="Admin password" style="flex:1;min-width:240px"/>
         <button id="pwGo" class="btn primary">Open editor</button>
@@ -141,6 +140,35 @@ const msgEl = el('#msg');
 function toast(t){ msgEl.textContent = t; setTimeout(()=>{ msgEl.textContent=''; }, 2500); }
 
 /* ========================
+   Normalization functions
+   - Keep combo WHEN as an editable array in UI
+   - Convert to object only on save
+======================== */
+function normalizeForEdit(cfg){
+  (cfg.combos || []).forEach(c=>{
+    if (!Array.isArray(c.__whenList)) {
+      const obj = c.when || {};
+      c.__whenList = Object.entries(obj).map(([key,val])=>({ key, val: String(val) }));
+    }
+  });
+}
+function cloneForSave(cfg){
+  const out = JSON.parse(JSON.stringify(cfg));
+  (out.combos || []).forEach(c=>{
+    const list = Array.isArray(c.__whenList) ? c.__whenList : [];
+    const obj = {};
+    list.forEach(({key,val})=>{
+      const k = (key||'').trim();
+      if (!k) return;
+      obj[k] = String(val ?? '');
+    });
+    c.when = obj;
+    delete c.__whenList;
+  });
+  return out;
+}
+
+/* ========================
    Load & Save
 ======================== */
 async function loadData(isRetry=false){
@@ -149,6 +177,7 @@ async function loadData(isRetry=false){
     config = await r.json();
     if (!config.questions) config.questions = [];
     if (!config.combos) config.combos = [];
+    normalizeForEdit(config);
     renderQuestions();
     renderCombos();
     if (isRetry) toast('Unlocked');
@@ -163,7 +192,8 @@ async function loadData(isRetry=false){
 
 async function saveAll(){
   try{
-    const r = await adminPUT('/apps/quiz/admin/config', config);
+    const payload = cloneForSave(config);
+    const r = await adminPUT('/apps/quiz/admin/config', payload);
     toast(r.ok ? 'Saved!' : 'Failed');
   }catch(e){
     if (e.message === 'unauth'){
@@ -281,31 +311,48 @@ function renderQuestions(){
 }
 
 /* ========================
-   Render: Combos
+   Render: Combos (with array editor)
 ======================== */
 function renderCombos(){
   const wrap = el('#combos');
   wrap.innerHTML = '';
   config.combos.forEach((c, ci) => {
     const card = make('div',{class:'q-card'});
-    const when = c.when || (c.when = {});
-    const rec  = Array.isArray(c.recommend) ? c.recommend : (c.recommend = []);
 
+    // ensure list exists
+    if (!Array.isArray(c.__whenList)) c.__whenList = [];
+
+    // CONDITIONS
     const whenWrap = make('div');
-    for (const [k,v] of Object.entries(when)){
-      whenWrap.appendChild(
-        make('div',{class:'grid-3',style:'margin-bottom:8px'},[
-          make('div',{},[ make('label',{class:'small',text:'Question ID'}), make('input',{value:k,oninput:e=>{ const nv=e.target.value.trim(); delete when[k]; when[nv]=v; renderCombos(); }}) ]),
-          make('div',{},[ make('label',{class:'small',text:'Value'}), make('input',{value:v,oninput:e=>{ when[k]=e.target.value; }}) ]),
-          make('div',{},[ make('label',{class:'small',text:'Remove'}), make('button',{class:'btn small bad',text:'✕',onclick:()=>{ delete when[k]; renderCombos(); }}) ])
-        ])
+    c.__whenList.forEach((pair, idx) => {
+      const row = make('div',{class:'grid-3',style:'margin-bottom:8px'});
+      const keyInput = make('input',{value:pair.key||'', placeholder:'Question ID'});
+      const valInput = make('input',{value:pair.val||'', placeholder:'Value'});
+      const delBtn   = make('button',{class:'btn small bad',text:'✕'});
+
+      keyInput.oninput = e => { pair.key = e.target.value; };
+      valInput.oninput = e => { pair.val = e.target.value; };
+      delBtn.onclick   = () => { c.__whenList.splice(idx,1); renderCombos(); };
+
+      row.append(
+        make('div',{},[ make('label',{class:'small',text:'Question ID'}), keyInput ]),
+        make('div',{},[ make('label',{class:'small',text:'Value'}), valInput ]),
+        make('div',{},[ make('label',{class:'small',text:'Remove'}), delBtn ])
       );
-    }
+      whenWrap.appendChild(row);
+    });
 
-    const addCond = make('button',{class:'btn small',text:'+ Add Condition',onclick:()=>{ when['questionId']='value'; renderCombos(); }});
+    const addCond = make('button',{class:'btn small',text:'+ Add Condition',onclick:()=>{ c.__whenList.push({key:'',val:''}); renderCombos(); }});
 
-    const recInput = make('input',{ value: rec.join(','), oninput:e=>{ c.recommend = e.target.value.split(',').map(s=>s.trim()).filter(Boolean); } , placeholder:'Comma separated product handles' });
+    // RECOMMEND handles
+    const rec = Array.isArray(c.recommend) ? c.recommend : (c.recommend = []);
+    const recInput = make('input',{
+      value: rec.join(','),
+      placeholder:'Comma separated product handles'
+    });
+    recInput.oninput = e => { c.recommend = e.target.value.split(',').map(s=>s.trim()).filter(Boolean); };
 
+    // COMPOSE
     card.append(
       make('div',{class:'muted',text:'When ALL conditions match:'}),
       whenWrap,
@@ -327,7 +374,7 @@ document.getElementById('addQ').onclick = ()=>{
   config.questions.push({ id:'q'+(config.questions.length+1), layout:'undertone', title:'', options:[] });
   renderQuestions();
 };
-document.getElementById('addCombo').onclick = ()=>{ config.combos.push({ when:{}, recommend:[] }); renderCombos(); };
+document.getElementById('addCombo').onclick = ()=>{ config.combos.push({ __whenList:[], recommend:[] }); renderCombos(); };
 document.getElementById('saveAll').onclick = saveAll;
 
 // Start: if password stored, try; else popup
