@@ -281,6 +281,19 @@
       nextBtn.textContent = state.step === cfg.questions.length - 1 ? 'See results' : 'Continue';
     }
 
+    function formatPrice(amount, currencyCode) {
+      const formatter = new Intl.NumberFormat('en-CA', {
+        style: 'currency',
+        currency: currencyCode || 'CAD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      // Example: "$45.00 CAD"
+      return `${formatter.format(amount)} ${currencyCode || 'CAD'}`;
+    }
+
+
     /* =========================
        Results helpers
     ========================== */
@@ -288,17 +301,18 @@
       const title = p.title || (p.handle ? p.handle.replace(/-/g, ' ') : 'Product');
       const url = p.handle ? `/products/${p.handle}` : '#';
       const img = p.image || `https://via.placeholder.com/600x600?text=${encodeURIComponent(title)}`;
-      const price = (p.price != null) ? formatMoney(p.price, p.currency) : '';
+      const price = (p.price != null) ? formatPrice(p.price, p.currency) : '';
       return `
-        <a class="ql-card" href="${url}">
-          <div class="ql-img"><img src="${img}" alt="${title}"></div>
-          <div class="ql-info">
-            <div class="ql-title">${title}</div>
-            ${price ? `<div class="ql-price">${price}</div>` : ``}
-          </div>
-        </a>
-      `;
+    <a class="ql-card" href="${url}">
+      <div class="ql-img"><img src="${img}" alt="${title}"></div>
+      <div class="ql-info">
+        <div class="ql-title">${title}</div>
+        ${price ? `<div class="ql-price">${price}</div>` : ``}
+      </div>
+    </a>
+  `;
     }
+
 
     function detectCurrency() {
       try {
@@ -449,10 +463,10 @@
      Styles (Rare Beauty-ish)
   ========================== */
   const css = `
-    .quiz-lite-wrapper{border:1px solid #eee;padding:24px;border-radius:20px;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
+    .quiz-lite-wrapper{border:1px solid #eee;padding:24px;border-radius:0;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
     .quiz-lite-question h3{display:none;margin:0 0 40px 0;font-size:20px}
     .quiz-lite-nav{display:flex;gap:8px;justify-content:space-between;margin-top:18px}
-    .quiz-lite-btn{padding:0 4rem;min-width: 270px;min-height: 58px;font-size: 17px;border:1px solid #ddd;border-radius:999px;background:#fff;cursor:pointer;letter-spacing:.5px;font-weight:700;font-family: Inter;text-transform: capitalize;}
+    .quiz-lite-btn{padding:0 4rem;min-width: 270px;min-height: 58px;font-size: 17px;border:1px solid #ddd;border-radius:0;background:#fff;cursor:pointer;letter-spacing:.5px;font-weight:700;font-family: Inter;text-transform: capitalize;}
     .quiz-dots{display:flex;gap:6px;justify-content:center;margin:14px 0}
     .quiz-dot{width:6px;height:6px;border-radius:50%;background:#ddd;display:inline-block}
     .quiz-dot.active{background:#7a1d3c}
@@ -495,7 +509,7 @@
     /* Step 2: Undertone */
     .undertone-row{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:12px}
     @media (max-width: 780px){ .undertone-row{grid-template-columns:1fr} }
-    .undertone-card{display:block;border:1px solid #eee;border-radius:12px;padding:16px 16px 18px 16px;background:#fff;cursor:pointer;position:relative}
+    .undertone-card{display:block;border:1px solid #eee;border-radius:0;padding:16px 16px 18px 16px;background:#fff;cursor:pointer;position:relative}
     .undertone-card.is-selected{box-shadow:0 0 0 2px #111 inset}
     .undertone-bar{height:6px;border-radius:6px;margin-bottom:12px}
     .undertone-dot{width:12px;height:12px;border:2px solid #111;border-radius:999px;position:absolute;left:16px;top:34px;background:#fff}
@@ -509,8 +523,8 @@
     .ql-card{border:1px solid #eee;border-radius:16px;overflow:hidden;text-decoration:none;color:inherit;display:block;background:#fff}
     .ql-img img{display:block;width:100%;height:220px;object-fit:cover}
     .ql-info{padding:12px}
-    .ql-title{font-weight:600}
-    .ql-price{margin-top:4px}
+    .ql-title{font-weight:500;font-size:18px;font-family:Inter;letter-spacing:0;}
+    .ql-price{margin-top:4px;font-size:18px;font-family:Inter;letter-spacing:normal;color:#74706d;}
   `;
   const style = document.createElement('style');
   style.textContent = css;
