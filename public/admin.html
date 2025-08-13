@@ -165,6 +165,33 @@ function renderQuestions() {
   config.questions.forEach((q, qi) => {
     const card = document.createElement("div");
     card.className = "question-card";
+
+    // Build option rows; add Description ONLY for undertone layout
+    const optionRows = Array.isArray(q.options) ? q.options.map((opt, oi) => {
+      if ((q.layout || '').toLowerCase() === 'undertone') {
+        // Undertone: label, value, description (new)
+        return `
+          <div class="option">
+            <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
+            <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
+            <input placeholder="Description (optional)" value="${opt.description || ""}" onchange="updateOption(${qi}, ${oi}, 'description', this.value)">
+            <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
+          </div>
+        `;
+      }
+      // Other layouts: keep existing fields unchanged
+      return `
+        <div class="option">
+          <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
+          <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
+          <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
+          <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
+          <input placeholder="Recommend handles (comma)" value="${(opt.recommend||[]).join(',')}" onchange="updateOptionRecs(${qi}, ${oi}, this.value)">
+          <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
+        </div>
+      `;
+    }).join("") : "";
+
     card.innerHTML = `
       <div class="row" style="margin-bottom:8px">
         <label>Question ID:&nbsp;<input type="text" value="${q.id || ""}" onchange="updateQuestionId(${qi}, this.value)"></label>
@@ -183,16 +210,7 @@ function renderQuestions() {
 
       <div class="options">
         <strong>Options</strong>
-        ${Array.isArray(q.options) ? q.options.map((opt, oi) => `
-          <div class="option">
-            <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
-            <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
-            <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
-            <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
-            <input placeholder="Recommend handles (comma)" value="${(opt.recommend||[]).join(',')}" onchange="updateOptionRecs(${qi}, ${oi}, this.value)">
-            <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
-          </div>
-        `).join("") : ""}
+        ${optionRows}
         <div style="margin-top:6px"><button class="ghost" onclick="addOption(${qi})">+ Add Option</button></div>
       </div>
     `;
