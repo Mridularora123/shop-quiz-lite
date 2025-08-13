@@ -450,9 +450,9 @@
   ========================== */
   const css = `
     .quiz-lite-wrapper{border:1px solid #eee;padding:24px;border-radius:20px;max-width:1100px;margin:0 auto;font-family:ui-sans-serif,system-ui,-apple-system;background:#fffdfb}
-    .quiz-lite-question h3{margin:0 0 6px 0;font-size:20px}
+    .quiz-lite-question h3{display:none;margin:0 0 40px 0;font-size:20px}
     .quiz-lite-nav{display:flex;gap:8px;justify-content:space-between;margin-top:18px}
-    .quiz-lite-btn{padding:12px 20px;border:1px solid #ddd;border-radius:999px;background:#fff;cursor:pointer;letter-spacing:.2em;font-weight:700}
+    .quiz-lite-btn{padding:0 4rem;min-width: 270px;min-height: 58px;font-size: 17px;border:1px solid #ddd;border-radius:999px;background:#fff;cursor:pointer;letter-spacing:.5px;font-weight:700;font-family: Inter;text-transform: capitalize;}
     .quiz-dots{display:flex;gap:6px;justify-content:center;margin:14px 0}
     .quiz-dot{width:6px;height:6px;border-radius:50%;background:#ddd;display:inline-block}
     .quiz-dot.active{background:#7a1d3c}
@@ -460,7 +460,7 @@
 
     /* Step 1: tone labels + gradient + slider thumb */
     .tone-stops{display:flex;justify-content:space-between;gap:12px;margin-bottom:8px;font-size:11px;letter-spacing:.12em}
-    .tone-stop{opacity:.65;border:0;background:none;cursor:pointer;padding:0;font-weight:700}
+    .tone-stop{opacity:.65;border:0;background:none;cursor:pointer;padding:0;font-weight:600;font-family: Inter;font-size: 16px;}
     .tone-stop.active{opacity:1;color:#111}
     .tone-wrap{ position:relative; height:26px; margin:0 0 12px 0 }
     .tone-bar{
@@ -499,8 +499,8 @@
     .undertone-card.is-selected{box-shadow:0 0 0 2px #111 inset}
     .undertone-bar{height:6px;border-radius:6px;margin-bottom:12px}
     .undertone-dot{width:12px;height:12px;border:2px solid #111;border-radius:999px;position:absolute;left:16px;top:34px;background:#fff}
-    .undertone-title{font-weight:800;letter-spacing:.35em;margin-left:26px}
-    .undertone-desc{color:#555;margin-left:26px;margin-top:6px}
+    .undertone-title{font-weight:600;letter-spacing:.6px;margin-left:26px;font-size:16px;font-family:Inter;}
+    .undertone-desc{color:#555;margin-left:26px;margin-top:6px;letter-spacing:.6px;font-size:16px;font-family:Inter;}
     .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
     /* Results */
