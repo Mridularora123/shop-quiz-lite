@@ -203,7 +203,7 @@ app.put("/apps/quiz/admin/config", requireAdmin, (req, res) => {
 });
 
 // Dynamic Admin UI
-app.get("/apps/quiz/admin", requireAdmin, (_req, res) => {
+app.get("/", requireAdmin, (_req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
