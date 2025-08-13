@@ -174,7 +174,8 @@ function renderQuestions() {
           <div class="option">
             <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
             <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
-            <input placeholder="Description (optional)" value="${opt.description || ""}" onchange="updateOption(${qi}, ${oi}, 'description', this.value)">
+            <input placeholder="Description (optional)" value="${opt.desc || ""}" onchange="updateOption(${qi}, ${oi}, 'desc', this.value)">
+
             <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
           </div>
         `;
