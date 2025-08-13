@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
@@ -29,12 +29,18 @@
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
     .opt-row{display:grid;grid-template-columns: 1.1fr 1fr 1.2fr 0.8fr auto; gap:10px; margin-top:8px}
-    .opt-row.undertone{grid-template-columns: 1.1fr 1fr 1.6fr 0.9fr auto;}
-    .opt-row.tones{grid-template-columns: 1.1fr 1fr 1.6fr 0.7fr auto;}
-    .opt-row.default{grid-template-columns: 1.1fr 1fr auto;}
+    .opt-row.undertone{grid-template-columns: 1.1fr 1fr 1.6fr 0.9fr auto;} /* label, value, desc, color, X */
+    .opt-row.tones{grid-template-columns: 1.1fr 1fr 1.6fr 0.7fr auto;}    /* label, value, image, group, X */
+    .opt-row.default{grid-template-columns: 1.1fr 1fr auto;}              /* label, value, X */
     .hr{height:1px;background:var(--line);margin:12px 0}
     label.small{font-size:12px;color:#374151;display:block;margin-bottom:6px}
     .pill{padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
+
+    /* Password modal */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:20}
+    .overlay.show{display:flex}
+    .modal{background:#fff;border-radius:16px;border:1px solid var(--line);padding:20px;min-width:300px;max-width:90vw}
+    .modal h3{margin:0 0 10px}
   </style>
 </head>
 <body>
@@ -58,9 +64,66 @@
     </div>
   </div>
 
+  <!-- Password popup -->
+  <div id="pwOverlay" class="overlay">
+    <div class="modal">
+      <h3>Enter Admin Password</h3>
+      <p class="muted" style="margin-top:-6px">Used for saving and loading your quiz config.</p>
+      <p>Use Admin Password :- quiz12345</p>
+      <div class="row">
+        <input id="pwInput" type="password" placeholder="Admin password" style="flex:1;min-width:240px"/>
+        <button id="pwGo" class="btn primary">Open editor</button>
+      </div>
+      <div id="pwErr" class="muted" style="color:#d32f2f;margin-top:6px;display:none">Wrong password. Try again.</div>
+    </div>
+  </div>
+
 <script>
+/* ========================
+   Password handling (header)
+======================== */
+function getPW(){ return sessionStorage.getItem('quiz_admin_pw') || ''; }
+function setPW(v){ sessionStorage.setItem('quiz_admin_pw', v || ''); }
+function clearPW(){ sessionStorage.removeItem('quiz_admin_pw'); }
+
+const overlay = document.getElementById('pwOverlay');
+const pwInput = document.getElementById('pwInput');
+const pwGo    = document.getElementById('pwGo');
+const pwErr   = document.getElementById('pwErr');
+
+function promptPW(showError=false){
+  overlay.classList.add('show');
+  pwErr.style.display = showError ? 'block' : 'none';
+  pwInput.value = '';
+  pwInput.focus();
+}
+pwGo.onclick = () => {
+  const v = pwInput.value.trim();
+  if(!v) return;
+  setPW(v);
+  overlay.classList.remove('show');
+  loadData(true);
+};
+
+async function adminGET(url){
+  const r = await fetch(url, { headers: { 'X-Admin-Password': getPW() } });
+  if (r.status === 401) throw new Error('unauth');
+  return r;
+}
+async function adminPUT(url, body){
+  const r = await fetch(url, {
+    method: 'PUT',
+    headers: { 'Content-Type':'application/json', 'X-Admin-Password': getPW() },
+    body: JSON.stringify(body)
+  });
+  if (r.status === 401) throw new Error('unauth');
+  return r;
+}
+
+/* ========================
+   UI helpers & state
+======================== */
 let config = { name:"", resultsTitle:"", questions:[], combos:[], rules:[] };
-const p = new URL(location).searchParams.get("p") || "";
 
 const el = sel => document.querySelector(sel);
 const make = (tag, attrs={}, kids=[]) => {
@@ -74,22 +137,54 @@ const make = (tag, attrs={}, kids=[]) => {
   return d;
 };
 
-async function loadData(){
-  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`);
-  config = await r.json();
-  if (!config.questions) config.questions = [];
-  if (!config.combos) config.combos = [];
-  renderQuestions();
-  renderCombos();
+const msgEl = el('#msg');
+function toast(t){ msgEl.textContent = t; setTimeout(()=>{ msgEl.textContent=''; }, 2500); }
+
+/* ========================
+   Load & Save
+======================== */
+async function loadData(isRetry=false){
+  try{
+    const r = await adminGET('/apps/quiz/admin/config');
+    config = await r.json();
+    if (!config.questions) config.questions = [];
+    if (!config.combos) config.combos = [];
+    renderQuestions();
+    renderCombos();
+    if (isRetry) toast('Unlocked');
+  }catch(e){
+    if (e.message === 'unauth'){
+      promptPW(isRetry); // show error after a failed attempt
+    } else {
+      toast('Load failed');
+    }
+  }
 }
 
+async function saveAll(){
+  try{
+    const r = await adminPUT('/apps/quiz/admin/config', config);
+    toast(r.ok ? 'Saved!' : 'Failed');
+  }catch(e){
+    if (e.message === 'unauth'){
+      clearPW();
+      promptPW(true);
+    } else {
+      toast('Save failed');
+    }
+  }
+}
+
+/* ========================
+   Render: Questions
+======================== */
 function renderQuestions(){
   const wrap = el('#questions');
   wrap.innerHTML = '';
   config.questions.forEach((q, qi) => {
     const card = make('div', { class:'q-card' });
 
-    // Header row: id + layout + delete
+    // Header: id + layout
     const header = make('div', { class:'grid' }, [
       make('div', {}, [
         make('label', { class:'small', for:`qid-${qi}`, text:'Question ID:' }),
@@ -117,7 +212,7 @@ function renderQuestions(){
       make('input', { id:`qt-${qi}`, value:q.title||'', oninput:(e)=>{ q.title=e.target.value; }})
     ]));
 
-    // Options block by layout
+    // Options
     const optsWrap = make('div', { class:'section' });
     optsWrap.appendChild(make('div', { class:'hr' }));
     optsWrap.appendChild(make('div', { class:'row' }, [
@@ -126,7 +221,6 @@ function renderQuestions(){
 
     const opts = q.options || (q.options = []);
 
-    // Row builder per layout
     function rowUndertone(oi, opt){
       const row = make('div', { class:'opt-row undertone' });
       row.append(
@@ -161,14 +255,12 @@ function renderQuestions(){
       return row;
     }
 
-    // Render existing options
     opts.forEach((opt, oi) => {
       if (q.layout === 'undertone') optsWrap.appendChild(rowUndertone(oi,opt));
       else if (q.layout === 'tone-faces') optsWrap.appendChild(rowToneFaces(oi,opt));
       else optsWrap.appendChild(rowDefault(oi,opt));
     });
 
-    // Add option button sets sensible defaults per layout
     const addOptBtn = make('button', { class:'btn small', text:'+ Add Option' });
     addOptBtn.onclick = ()=>{
       if (q.layout === 'undertone') opts.push({ label:'', value:'', desc:'', color:'' });
@@ -188,7 +280,9 @@ function renderQuestions(){
   });
 }
 
-// COMBOS
+/* ========================
+   Render: Combos
+======================== */
 function renderCombos(){
   const wrap = el('#combos');
   wrap.innerHTML = '';
@@ -226,22 +320,20 @@ function renderCombos(){
   });
 }
 
-// BUTTONS
-el('#addQ').onclick = ()=>{
+/* ========================
+   Buttons & boot
+======================== */
+document.getElementById('addQ').onclick = ()=>{
   config.questions.push({ id:'q'+(config.questions.length+1), layout:'undertone', title:'', options:[] });
   renderQuestions();
 };
-el('#addCombo').onclick = ()=>{ config.combos.push({ when:{}, recommend:[] }); renderCombos(); };
+document.getElementById('addCombo').onclick = ()=>{ config.combos.push({ when:{}, recommend:[] }); renderCombos(); };
+document.getElementById('saveAll').onclick = saveAll;
 
-el('#saveAll').onclick = async ()=>{
-  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`,{
-    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config)
-  });
-  el('#msg').textContent = r.ok ? 'Saved!' : 'Failed';
-  setTimeout(()=>{ el('#msg').textContent=''; }, 2500);
-};
-
-loadData();
+// Start: if password stored, try; else popup
+(function boot(){
+  if (getPW()) loadData(); else promptPW(false);
+})();
 </script>
 </body>
 </html>
