@@ -1,285 +1,246 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>Quiz Admin Panel</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     :root{
-      --blue:#1976d2; --green:#388e3c; --red:#d32f2f; --bg:#fafafa; --border:#dcdcdc;
+      --bg:#fff; --muted:#6b7280; --line:#e5e7eb;
+      --brand:#7a1d3c; --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
     }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 20px; max-width: 1200px; margin: auto; background:#fff; }
-    h1{ margin-top:0 }
-    .question-card, .combo-card {
-      border: 1px solid var(--border); padding: 15px; margin-bottom: 15px;
-      border-radius: 8px; background: var(--bg);
+    *{box-sizing:border-box}
+    body { font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial;
+           padding: 20px; max-width: 1200px; margin: auto; color:#111; background:#fff; }
+    h1{margin:0 0 14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .muted{color:var(--muted)}
+    .btn{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+    .btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+    .btn.small{padding:6px 9px;font-size:12px}
+    input,select,textarea{
+      padding:10px;border:1px solid var(--line);border-radius:10px;min-width:0;
+      width:100%;
     }
-    .row{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-    .options, .when-conditions { margin-left: 20px; }
-    .option, .condition { display: flex; gap: 10px; margin-top: 6px; align-items:center; }
-    input, textarea, select {
-      padding: 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit;
-    }
-    input[type="text"]{ min-width: 220px; }
-    button {
-      padding: 8px 12px; border: none; border-radius: 6px;
-      cursor: pointer; background: var(--blue); color: #fff;
-    }
-    button.red { background: var(--red); }
-    button.green { background: var(--green); }
-    button.ghost { background:#fff; color:#000; border:1px solid var(--border); }
-    .muted{ color:#666; font-size: 13px; }
-
-    /* Gate (password overlay) */
-    .gate{ position: fixed; inset: 0; background: rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; }
-    .gate.hidden{ display:none }
-    .panel{
-      background:#fff; border-radius:12px; padding:20px; width: min(520px, 92vw); box-shadow:0 10px 30px rgba(0,0,0,.2);
-    }
-    .err{ color: var(--red); margin-top:8px; min-height: 1em; }
+    .section{margin-top:22px}
+    .q-card{border:1px solid var(--line);border-radius:12px;padding:14px 14px 10px;margin:14px 0;background:#fafafa}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+    .opt-row{display:grid;grid-template-columns: 1.1fr 1fr 1.2fr 0.8fr auto; gap:10px; margin-top:8px}
+    .opt-row.undertone{grid-template-columns: 1.1fr 1fr 1.6fr 0.9fr auto;}
+    .opt-row.tones{grid-template-columns: 1.1fr 1fr 1.6fr 0.7fr auto;}
+    .opt-row.default{grid-template-columns: 1.1fr 1fr auto;}
+    .hr{height:1px;background:var(--line);margin:12px 0}
+    label.small{font-size:12px;color:#374151;display:block;margin-bottom:6px}
+    .pill{padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:12px}
   </style>
 </head>
 <body>
 
-<h1>Quiz Config Editor</h1>
-<p class="muted">Edit questions, options, and combo rules. Click “Save All Changes” when done.</p>
+  <h1>Quiz Config Editor</h1>
+  <div class="muted">Edit questions and combo rules. Click <b>Save</b> to publish.</div>
 
-<div class="row" style="margin-bottom:14px">
-  <button class="ghost" id="reloadBtn">↻ Reload</button>
-  <button class="green" id="saveBtn">💾 Save All Changes</button>
-  <span id="flash" class="muted"></span>
-</div>
-
-<!-- Questions -->
-<h2>Questions</h2>
-<div id="questions"></div>
-<button class="green" onclick="addQuestion()">+ Add Question</button>
-
-<!-- Combos -->
-<h2 style="margin-top:28px">Combo Rules <span class="muted">(Match multiple answers → Recommend handles)</span></h2>
-<div id="combos"></div>
-<button class="green" onclick="addCombo()">+ Add Combo Rule</button>
-
-<!-- Password overlay (only appears if password is required / wrong) -->
-<div class="gate hidden" id="gate">
-  <div class="panel">
-    <h3>Enter Admin Password</h3>
-    <p class="muted">Your changes are protected. Enter the password to load or save config.</p>
-    <p>Use Admin Password : quiz12345</p>
-    <div class="row">
-      <input id="pw" type="password" placeholder="Admin password" style="flex:1">
-      <button id="loginBtn">Open editor</button>
-    </div>
-    <div id="err" class="err"></div>
+  <div class="section row">
+    <button class="btn ok" id="addQ">+ Add Question</button>
+    <button class="btn primary" id="saveAll">💾 Save</button>
+    <span id="msg" class="muted"></span>
   </div>
-</div>
+
+  <div id="questions"></div>
+
+  <div class="section">
+    <h2>Combo Rules <span class="pill">match multiple answers → recommend</span></h2>
+    <div id="combos"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn ok" id="addCombo">+ Add Combo Rule</button>
+    </div>
+  </div>
 
 <script>
-let config = { questions: [], combos: [], rules: [] };
-const qs = new URL(location.href).searchParams;
-const localKey = "quiz_admin_pw";
+let config = { name:"", resultsTitle:"", questions:[], combos:[], rules:[] };
+const p = new URL(location).searchParams.get("p") || "";
 
-// prefer ?p= param; otherwise use localStorage
-function getPassword() {
-  const fromUrl = qs.get("p");
-  if (fromUrl) {
-    localStorage.setItem(localKey, fromUrl);
-    return fromUrl;
-  }
-  return localStorage.getItem(localKey) || "";
-}
-function setPassword(pw) {
-  localStorage.setItem(localKey, pw || "");
-}
-
-// API helpers
-async function apiGetConfig(pw) {
-  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(pw)}`);
-  if (r.status === 401) throw new Error("unauthorized");
-  return r.json();
-}
-async function apiSaveConfig(pw, body) {
-  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(pw)}`, {
-    method: "PUT", headers: { "Content-Type":"application/json" }, body: JSON.stringify(body)
-  });
-  if (r.status === 401) throw new Error("unauthorized");
-  return r.json();
-}
-
-// UI helpers
 const el = sel => document.querySelector(sel);
-function flash(msg, ok=true) {
-  const f = el("#flash");
-  f.textContent = msg;
-  f.style.color = ok ? "#2e7d32" : "#d32f2f";
-  setTimeout(()=>{ f.textContent = ""; }, 2500);
-}
-
-// ===== LOAD =====
-async function loadData() {
-  try {
-    const pw = getPassword();
-    const data = await apiGetConfig(pw);
-    // data is raw quiz.json
-    config = data;
-    if (!Array.isArray(config.questions)) config.questions = [];
-    if (!Array.isArray(config.combos)) config.combos = [];
-    if (!Array.isArray(config.rules)) config.rules = [];
-    renderQuestions();
-    renderCombos();
-    el("#gate").classList.add("hidden");
-  } catch (e) {
-    if (e.message === "unauthorized") {
-      el("#gate").classList.remove("hidden");
-      el("#err").textContent = "Password required or incorrect.";
-      el("#pw").focus();
-    } else {
-      flash("Failed to load config", false);
-      console.error(e);
-    }
+const make = (tag, attrs={}, kids=[]) => {
+  const d = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === 'class') d.className = v;
+    else if (k === 'text') d.textContent = v;
+    else d.setAttribute(k, v);
   }
-}
-
-// ===== SAVE =====
-async function saveConfig() {
-  try {
-    const pw = getPassword();
-    // keep original structure (questions, combos, rules)
-    await apiSaveConfig(pw, config);
-    flash("Saved!");
-  } catch (e) {
-    if (e.message === "unauthorized") {
-      el("#gate").classList.remove("hidden");
-      el("#err").textContent = "Password required or incorrect.";
-    } else {
-      flash("Failed to save", false);
-      console.error(e);
-    }
-  }
-}
-
-// ===== QUESTIONS =====
-function renderQuestions() {
-  const container = el("#questions");
-  container.innerHTML = "";
-  config.questions.forEach((q, qi) => {
-    const card = document.createElement("div");
-    card.className = "question-card";
-    card.innerHTML = `
-      <div class="row" style="margin-bottom:8px">
-        <label>Question ID:&nbsp;<input type="text" value="${q.id || ""}" onchange="updateQuestionId(${qi}, this.value)"></label>
-        <label>Layout:&nbsp;<input type="text" value="${q.layout || ""}" placeholder="tone-faces / undertone / radios" onchange="updateQuestionLayout(${qi}, this.value)"></label>
-        <button class="red" onclick="removeQuestion(${qi})">Delete</button>
-      </div>
-      <div class="row" style="margin-bottom:8px">
-        <label style="flex:1">Title:&nbsp;<input type="text" style="width:100%" value="${q.title || ""}" onchange="updateQuestionTitle(${qi}, this.value)"></label>
-      </div>
-
-      ${Array.isArray(q.stops) ? `
-      <div class="row" style="margin-bottom:8px">
-        <label style="flex:1">Stops (comma separated):&nbsp;<input type="text" style="width:100%" value="${q.stops.join(',')}" onchange="updateQuestionStops(${qi}, this.value)"></label>
-      </div>
-      ` : ``}
-
-      <div class="options">
-        <strong>Options</strong>
-        ${Array.isArray(q.options) ? q.options.map((opt, oi) => `
-          <div class="option">
-            <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
-            <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
-            <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
-            <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
-            <input placeholder="Recommend handles (comma)" value="${(opt.recommend||[]).join(',')}" onchange="updateOptionRecs(${qi}, ${oi}, this.value)">
-            <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
-          </div>
-        `).join("") : ""}
-        <div style="margin-top:6px"><button class="ghost" onclick="addOption(${qi})">+ Add Option</button></div>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-}
-
-function addQuestion(){
-  config.questions.push({
-    id: "q" + (config.questions.length + 1),
-    type: "single",
-    layout: "radios",
-    title: "New Question",
-    options: []
-  });
-  renderQuestions();
-}
-function removeQuestion(qi){ config.questions.splice(qi,1); renderQuestions(); }
-
-function updateQuestionId(qi, v){ config.questions[qi].id = v; }
-function updateQuestionLayout(qi, v){ config.questions[qi].layout = v; }
-function updateQuestionTitle(qi, v){ config.questions[qi].title = v; }
-function updateQuestionStops(qi, v){ config.questions[qi].stops = v.split(",").map(s=>s.trim()).filter(Boolean); }
-
-function addOption(qi){ (config.questions[qi].options ||= []).push({ label:"New Option", value:"opt_"+Date.now(), recommend:[] }); renderQuestions(); }
-function removeOption(qi, oi){ config.questions[qi].options.splice(oi,1); renderQuestions(); }
-function updateOption(qi, oi, k, v){ (config.questions[qi].options[oi])[k] = v; }
-function updateOptionRecs(qi, oi, v){
-  const arr = v.split(",").map(x=>x.trim()).filter(Boolean);
-  (config.questions[qi].options[oi]).recommend = arr;
-}
-
-// ===== COMBOS =====
-function renderCombos() {
-  const container = el("#combos");
-  container.innerHTML = "";
-  config.combos.forEach((c, ci) => {
-    const when = c.when || {};
-    const recs = c.recommend || [];
-    const card = document.createElement("div");
-    card.className = "combo-card";
-    card.innerHTML = `
-      <div><strong>When (all must match)</strong></div>
-      <div class="when-conditions">
-        ${Object.entries(when).map(([qid, val]) => `
-          <div class="condition">
-            <input placeholder="Question ID" value="${qid}" onchange="updateComboKey(${ci}, '${qid}', this.value)">
-            <input placeholder="Value" value="${val}" onchange="updateComboVal(${ci}, '${qid}', this.value)">
-            <button class="red" onclick="removeComboCondition(${ci}, '${qid}')">❌</button>
-          </div>
-        `).join("")}
-        <div style="margin-top:6px"><button class="ghost" onclick="addComboCondition(${ci})">+ Add Condition</button></div>
-      </div>
-      <div class="row" style="margin-top:8px">
-        <label style="flex:1">Recommend handles (comma):&nbsp;<input type="text" style="width:100%" value="${recs.join(',')}" onchange="updateComboRecs(${ci}, this.value)"></label>
-        <button class="red" onclick="removeCombo(${ci})">Delete combo</button>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-}
-function addCombo(){ config.combos.push({ when:{}, recommend:[] }); renderCombos(); }
-function removeCombo(ci){ config.combos.splice(ci,1); renderCombos(); }
-function addComboCondition(ci){ config.combos[ci].when["questionId"] = "value"; renderCombos(); }
-function removeComboCondition(ci, key){ delete config.combos[ci].when[key]; renderCombos(); }
-function updateComboKey(ci, oldK, newK){
-  const val = config.combos[ci].when[oldK];
-  delete config.combos[ci].when[oldK];
-  config.combos[ci].when[newK] = val;
-}
-function updateComboVal(ci, k, v){ config.combos[ci].when[k] = v; }
-function updateComboRecs(ci, v){ config.combos[ci].recommend = v.split(",").map(x=>x.trim()).filter(Boolean); }
-
-// Buttons
-el("#reloadBtn").onclick = loadData;
-el("#saveBtn").onclick = saveConfig;
-
-// Gate actions
-el("#loginBtn").onclick = async () => {
-  const pw = el("#pw").value.trim();
-  if (!pw) { el("#err").textContent = "Password is required."; return; }
-  setPassword(pw);
-  el("#err").textContent = "";
-  await loadData();
+  (Array.isArray(kids)?kids:[kids]).forEach(k => d.appendChild(typeof k==='string'?document.createTextNode(k):k));
+  return d;
 };
 
-// Init
+async function loadData(){
+  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`);
+  config = await r.json();
+  if (!config.questions) config.questions = [];
+  if (!config.combos) config.combos = [];
+  renderQuestions();
+  renderCombos();
+}
+
+function renderQuestions(){
+  const wrap = el('#questions');
+  wrap.innerHTML = '';
+  config.questions.forEach((q, qi) => {
+    const card = make('div', { class:'q-card' });
+
+    // Header row: id + layout + delete
+    const header = make('div', { class:'grid' }, [
+      make('div', {}, [
+        make('label', { class:'small', for:`qid-${qi}`, text:'Question ID:' }),
+        make('input', { id:`qid-${qi}`, value:q.id||'', oninput: (e)=>{ q.id = e.target.value.trim(); }})
+      ]),
+      make('div', {}, [
+        make('label', { class:'small', for:`lay-${qi}`, text:'Layout:' }),
+        (()=>{
+          const sel = make('select', { id:`lay-${qi}` });
+          ['undertone','tone-faces','radios'].forEach(v=>{
+            const opt = make('option', { value:v, text:v });
+            if ((q.layout||'')===v) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          sel.onchange = ()=>{ q.layout = sel.value; renderQuestions(); };
+          return sel;
+        })()
+      ])
+    ]);
+    card.appendChild(header);
+
+    // Title
+    card.appendChild(make('div', { class:'section' }, [
+      make('label', { class:'small', for:`qt-${qi}`, text:'Title:' }),
+      make('input', { id:`qt-${qi}`, value:q.title||'', oninput:(e)=>{ q.title=e.target.value; }})
+    ]));
+
+    // Options block by layout
+    const optsWrap = make('div', { class:'section' });
+    optsWrap.appendChild(make('div', { class:'hr' }));
+    optsWrap.appendChild(make('div', { class:'row' }, [
+      make('div', { class:'muted', text:'Options' })
+    ]));
+
+    const opts = q.options || (q.options = []);
+
+    // Row builder per layout
+    function rowUndertone(oi, opt){
+      const row = make('div', { class:'opt-row undertone' });
+      row.append(
+        make('div', {}, [ make('label',{class:'small',text:'Label'}), make('input',{value:opt.label||'', oninput:e=>opt.label=e.target.value}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Value'}), make('input',{value:opt.value||'', oninput:e=>opt.value=e.target.value}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Desc'}),  make('input',{value:opt.desc||'', oninput:e=>opt.desc=e.target.value}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Color (optional)'}), make('input',{value:opt.color||'', oninput:e=>opt.color=e.target.value, placeholder:'#b8a6f3'}) ]),
+        make('div', {}, [ make('button',{class:'btn small bad',text:'✕',onclick:()=>{ opts.splice(oi,1); renderQuestions(); }}) ])
+      );
+      return row;
+    }
+
+    function rowToneFaces(oi, opt){
+      const row = make('div', { class:'opt-row tones' });
+      row.append(
+        make('div', {}, [ make('label',{class:'small',text:'Label'}), make('input',{value:opt.label||'', oninput:e=>opt.label=e.target.value}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Value'}), make('input',{value:opt.value||'', oninput:e=>opt.value=e.target.value}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Image URL'}), make('input',{value:opt.image||'', oninput:e=>opt.image=e.target.value, placeholder:'https://...'}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Group (slider index)'}), make('input',{type:'number',value:(opt.group??0), oninput:e=>opt.group=Number(e.target.value)}) ]),
+        make('div', {}, [ make('button',{class:'btn small bad',text:'✕',onclick:()=>{ opts.splice(oi,1); renderQuestions(); }}) ])
+      );
+      return row;
+    }
+
+    function rowDefault(oi, opt){
+      const row = make('div', { class:'opt-row default' });
+      row.append(
+        make('div', {}, [ make('label',{class:'small',text:'Label'}), make('input',{value:opt.label||'', oninput:e=>opt.label=e.target.value}) ]),
+        make('div', {}, [ make('label',{class:'small',text:'Value'}), make('input',{value:opt.value||'', oninput:e=>opt.value=e.target.value}) ]),
+        make('div', {}, [ make('button',{class:'btn small bad',text:'✕',onclick:()=>{ opts.splice(oi,1); renderQuestions(); }}) ])
+      );
+      return row;
+    }
+
+    // Render existing options
+    opts.forEach((opt, oi) => {
+      if (q.layout === 'undertone') optsWrap.appendChild(rowUndertone(oi,opt));
+      else if (q.layout === 'tone-faces') optsWrap.appendChild(rowToneFaces(oi,opt));
+      else optsWrap.appendChild(rowDefault(oi,opt));
+    });
+
+    // Add option button sets sensible defaults per layout
+    const addOptBtn = make('button', { class:'btn small', text:'+ Add Option' });
+    addOptBtn.onclick = ()=>{
+      if (q.layout === 'undertone') opts.push({ label:'', value:'', desc:'', color:'' });
+      else if (q.layout === 'tone-faces') opts.push({ label:'', value:'', image:'', group:0 });
+      else opts.push({ label:'', value:'' });
+      renderQuestions();
+    };
+    optsWrap.appendChild(make('div',{class:'row',style:'margin-top:8px'},[addOptBtn]));
+    card.appendChild(optsWrap);
+
+    // Delete question
+    card.appendChild(make('div',{class:'row',style:'justify-content:flex-end'},[
+      make('button',{class:'btn bad',text:'Delete Question',onclick:()=>{ config.questions.splice(qi,1); renderQuestions(); }})
+    ]));
+
+    wrap.appendChild(card);
+  });
+}
+
+// COMBOS
+function renderCombos(){
+  const wrap = el('#combos');
+  wrap.innerHTML = '';
+  config.combos.forEach((c, ci) => {
+    const card = make('div',{class:'q-card'});
+    const when = c.when || (c.when = {});
+    const rec  = Array.isArray(c.recommend) ? c.recommend : (c.recommend = []);
+
+    const whenWrap = make('div');
+    for (const [k,v] of Object.entries(when)){
+      whenWrap.appendChild(
+        make('div',{class:'grid-3',style:'margin-bottom:8px'},[
+          make('div',{},[ make('label',{class:'small',text:'Question ID'}), make('input',{value:k,oninput:e=>{ const nv=e.target.value.trim(); delete when[k]; when[nv]=v; renderCombos(); }}) ]),
+          make('div',{},[ make('label',{class:'small',text:'Value'}), make('input',{value:v,oninput:e=>{ when[k]=e.target.value; }}) ]),
+          make('div',{},[ make('label',{class:'small',text:'Remove'}), make('button',{class:'btn small bad',text:'✕',onclick:()=>{ delete when[k]; renderCombos(); }}) ])
+        ])
+      );
+    }
+
+    const addCond = make('button',{class:'btn small',text:'+ Add Condition',onclick:()=>{ when['questionId']='value'; renderCombos(); }});
+
+    const recInput = make('input',{ value: rec.join(','), oninput:e=>{ c.recommend = e.target.value.split(',').map(s=>s.trim()).filter(Boolean); } , placeholder:'Comma separated product handles' });
+
+    card.append(
+      make('div',{class:'muted',text:'When ALL conditions match:'}),
+      whenWrap,
+      addCond,
+      make('div',{class:'hr'}),
+      make('div',{},[ make('label',{class:'small',text:'Recommend handles'}), recInput ]),
+      make('div',{class:'row',style:'justify-content:flex-end;margin-top:8px'},[
+        make('button',{class:'btn bad',text:'Delete Combo',onclick:()=>{ config.combos.splice(ci,1); renderCombos(); }})
+      ])
+    );
+    wrap.appendChild(card);
+  });
+}
+
+// BUTTONS
+el('#addQ').onclick = ()=>{
+  config.questions.push({ id:'q'+(config.questions.length+1), layout:'undertone', title:'', options:[] });
+  renderQuestions();
+};
+el('#addCombo').onclick = ()=>{ config.combos.push({ when:{}, recommend:[] }); renderCombos(); };
+
+el('#saveAll').onclick = async ()=>{
+  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`,{
+    method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(config)
+  });
+  el('#msg').textContent = r.ok ? 'Saved!' : 'Failed';
+  setTimeout(()=>{ el('#msg').textContent=''; }, 2500);
+};
+
 loadData();
 </script>
 </body>
