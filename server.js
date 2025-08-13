@@ -1,12 +1,9 @@
-/* Shop Quiz Lite — Express server
+/* Shop Quiz Lite — Express server (with dynamic admin panel)
  * Works with Shopify App Proxy using either:
- *   A) Proxy URL: https://<render>/apps/quiz         (no "/proxy")
+ *   A) Proxy URL: https://<render>/apps/quiz
  *      Theme: <script src="/apps/quiz/quiz.js"></script>
- *      JS fetch: /apps/quiz/config  and  /apps/quiz/recommend
- *
- *   B) Proxy URL: https://<render>/apps/quiz/proxy   (with "/proxy")
+ *   B) Proxy URL: https://<render>/apps/quiz/proxy
  *      Theme: <script src="/apps/quiz/proxy/quiz.js"></script>
- *      JS fetch: /apps/quiz/proxy/config  and  /apps/quiz/proxy/recommend
  */
 
 import express from "express";
@@ -26,7 +23,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Allow embedding inside Shopify Admin iframe
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
@@ -41,24 +37,21 @@ const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
 const SF_TOKEN = process.env.STOREFRONT_API_TOKEN || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
-// -------- Paths --------
+// Paths
 const publicDir = path.join(__dirname, "public");
 const dataDir = path.join(__dirname, "data");
 const quizJsonPath = path.join(dataDir, "quiz.json");
 
-// -------- Helpers --------
+// Helpers
 function loadConfig() {
   const raw = fs.readFileSync(quizJsonPath, "utf-8");
   return JSON.parse(raw);
 }
 
 async function buildProductsFromHandles(handles) {
-  // Normalize shop domain: remove protocol and trailing slash
   const shopDomain = (SHOP || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
 
-  // If token or shop are missing, return bare handles so the UI can still link
   if (!SF_TOKEN || !shopDomain) {
-    console.warn("[Quiz] Missing SF token or shop domain. Returning handles only.");
     return handles.map(h => ({
       handle: h, title: null, image: null, price: null, currency: null
     }));
@@ -74,13 +67,9 @@ async function buildProductsFromHandles(handles) {
           title
           handle
           featuredImage { url }
-          images(first: 1) { edges { node { url } } }   # fallback if no featured image
+          images(first: 1) { edges { node { url } } }
           variants(first: 1) {
-            edges {
-              node {
-                price { amount currencyCode }          # price & currency
-              }
-            }
+            edges { node { price { amount currencyCode } } }
           }
         }
       }
@@ -96,30 +85,11 @@ async function buildProductsFromHandles(handles) {
         body: JSON.stringify({ query, variables: { handle } }),
       });
 
-      if (!resp.ok) {
-        console.error("[Quiz] Storefront HTTP error", resp.status, await resp.text());
-        out.push({ handle, title: null, image: null, price: null, currency: null });
-        continue;
-      }
-
       const data = await resp.json();
-
-      if (data.errors) {
-        console.error("[Quiz] Storefront GraphQL errors", data.errors);
-        out.push({ handle, title: null, image: null, price: null, currency: null });
-        continue;
-      }
-
       const p = data?.data?.productByHandle;
-
       if (p) {
-        const img =
-          p.featuredImage?.url ||
-          p.images?.edges?.[0]?.node?.url ||
-          null;
-
+        const img = p.featuredImage?.url || p.images?.edges?.[0]?.node?.url || null;
         const priceNode = p.variants?.edges?.[0]?.node?.price;
-
         out.push({
           handle: p.handle,
           title: p.title || null,
@@ -128,11 +98,9 @@ async function buildProductsFromHandles(handles) {
           currency: priceNode?.currencyCode || null,
         });
       } else {
-        // product not found (wrong handle or not published to Online Store)
         out.push({ handle, title: null, image: null, price: null, currency: null });
       }
-    } catch (e) {
-      console.error("[Quiz] Storefront fetch error for", handle, e);
+    } catch {
       out.push({ handle, title: null, image: null, price: null, currency: null });
     }
   }
@@ -140,22 +108,19 @@ async function buildProductsFromHandles(handles) {
   return out;
 }
 
-
-
+// Recommend Handler
 function makeRecommendHandler() {
   return async (req, res) => {
     try {
       const { answers } = req.body || {};
       const cfg = loadConfig();
 
-      // Build quick lookup: { goal: 'anti_frizz', budget: 'low', ... }
       const aMap = {};
       (answers || []).forEach(a => { aMap[a.questionId] = String(a.value); });
 
       const picks = new Set();
-
-      // 1) Try COMBO rules first (AND)
       const combos = Array.isArray(cfg.combos) ? cfg.combos : [];
+
       for (const c of combos) {
         const when = c?.when || {};
         const allMatch = Object.entries(when).every(([qid, val]) => String(aMap[qid]) === String(val));
@@ -164,10 +129,8 @@ function makeRecommendHandler() {
         }
       }
 
-      // 2) If no combo matched, fall back to single-question rules (OR/union)
       if (picks.size === 0) {
         (cfg.rules || []).forEach(r => {
-          if (!r || !r.questionId) return;
           if (String(aMap[r.questionId]) === String(r.value) && Array.isArray(r.recommend)) {
             r.recommend.forEach(h => picks.add(h));
           }
@@ -179,156 +142,72 @@ function makeRecommendHandler() {
 
       res.json({ success: true, products });
     } catch (e) {
-      console.error("Recommendation failed:", e);
       res.status(500).json({ success: false, error: "Recommendation failed" });
     }
   };
 }
 
-
+// Config Handler
 function makeConfigHandler() {
   return (_req, res) => {
     try {
       const cfg = loadConfig();
       res.json({ success: true, config: cfg, shop: SHOP });
-    } catch (e) {
-      console.error("Config error:", e);
+    } catch {
       res.status(500).json({ success: false, error: "Config error" });
     }
   };
 }
 
-// -------- Health & Home --------
+// Health
 app.get("/health", (_req, res) => res.json({ ok: true }));
-app.get("/", (_req, res) => {
-  res.send(`
-<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>
-  body{font-family:system-ui;margin:0;padding:24px}
-  .wrap{max-width:900px;margin:0 auto}
-  a.btn,button.btn{display:inline-block;padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;text-decoration:none}
-  ul{line-height:1.9}
-</style>
-<div class="wrap">
-  <h2>Shop Quiz Lite</h2>
-  <p>Server running at <code>${PUBLIC_URL}</code></p>
-  <ul>
-    <li>Health: <a href="/health" target="_blank">/health</a></li>
-    <li>Static (no proxy): <a href="/apps/quiz/quiz.js" target="_blank">/apps/quiz/quiz.js</a></li>
-    <li>Config (no proxy): <a href="/apps/quiz/config" target="_blank">/apps/quiz/config</a></li>
-  </ul>
 
-  <hr style="margin:20px 0" />
-  <h3>Admin</h3>
-  <p>Edit questions, options, and product mappings.</p>
-  <p>Use Admin Password : quiz12345</p>
-  <div style="display:flex;gap:8px;align-items:center">
-    <input id="pw" type="password" placeholder="Enter admin password" style="padding:10px;border:1px solid #ddd;border-radius:10px;min-width:260px" />
-    <button class="btn" id="open">Open editor</button>
-  </div>
-</div>
-<script>
-  document.getElementById('open').onclick = function(){
-    var p = document.getElementById('pw').value || '';
-    if(!p){ alert('Enter the admin password'); return; }
-    // stay inside the Shopify app iframe
-    window.location.href = '/apps/quiz/admin?p=' + encodeURIComponent(p);
-  };
-</script>
-  `);
-});
-
-
-// -------- No-proxy routes (recommended) --------
+// Static + routes
 app.use("/apps/quiz", express.static(publicDir));
 app.get("/apps/quiz/config", makeConfigHandler());
 app.post("/apps/quiz/recommend", makeRecommendHandler());
 
-// -------- Legacy /proxy routes (kept for compatibility) --------
 app.use("/apps/quiz/proxy", express.static(publicDir));
 app.get("/apps/quiz/proxy/config", makeConfigHandler());
 app.post("/apps/quiz/proxy/recommend", makeRecommendHandler());
 
-// ===== Simple Admin Editor (file-based, no Shopify scopes) =====
+// Admin Middleware
 function requireAdmin(req, res, next) {
   const pass = req.headers["x-admin-password"] || req.query.p;
   if (ADMIN_PASSWORD && pass === ADMIN_PASSWORD) return next();
   res.status(401).send("Unauthorized");
 }
 
-// Read current config (used by admin UI)
+// Get config
 app.get("/apps/quiz/admin/config", requireAdmin, (_req, res) => {
   try {
     const raw = fs.readFileSync(quizJsonPath, "utf-8");
     res.type("application/json").send(raw);
-  } catch (e) {
-    console.error(e);
+  } catch {
     res.status(500).json({ error: "read fail" });
   }
 });
 
-// Save updated config
+// Save config
 app.put("/apps/quiz/admin/config", requireAdmin, (req, res) => {
   try {
     const body = req.body;
-    // basic shape check
     if (!body || !Array.isArray(body.questions) || !Array.isArray(body.rules)) {
       return res.status(400).json({ error: "Invalid config shape" });
     }
     fs.writeFileSync(quizJsonPath, JSON.stringify(body, null, 2), "utf-8");
     res.json({ ok: true });
-  } catch (e) {
-    console.error(e);
+  } catch {
     res.status(500).json({ error: "write fail" });
   }
 });
 
-// Minimal admin UI (textarea JSON editor)
+// Dynamic Admin UI
 app.get("/apps/quiz/admin", requireAdmin, (_req, res) => {
-  res.send(`
-<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<style>
-  body{font-family:system-ui;margin:0;padding:24px;background:#fff}
-  .wrap{max-width:1000px;margin:0 auto}
-  textarea{width:100%;height:60vh;font-family:ui-monospace,monospace;border:1px solid #e5e7eb;border-radius:12px;padding:12px}
-  .row{display:flex;gap:8px;align-items:center;margin:12px 0}
-  button{padding:10px 14px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer}
-  .hint{color:#555}
-</style>
-<div class="wrap">
-  <h2>Quiz Config Editor</h2>
-  <p class="hint">Edit <code>questions</code>, <code>options</code>, and <code>rules</code>. Click <b>Save</b> to publish.</p>
-  <div class="row">
-    <button id="pretty">Pretty</button>
-    <button id="save">Save</button>
-    <span id="msg"></span>
-  </div>
-  <textarea id="t"></textarea>
-</div>
-<script>
-  const p = new URL(location).searchParams.get("p")||"";
-  async function load(){
-    const r = await fetch("/apps/quiz/admin/config?p="+encodeURIComponent(p));
-    const txt = await r.text();
-    t.value = txt || "{}";
-  }
-  pretty.onclick = ()=>{ try{ t.value = JSON.stringify(JSON.parse(t.value), null, 2) }catch(e){ alert("Invalid JSON") } };
-  save.onclick = async ()=>{
-    try{
-      const j = JSON.parse(t.value);
-      const r = await fetch("/apps/quiz/admin/config?p="+encodeURIComponent(p),{
-        method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(j)
-      });
-      msg.textContent = r.ok ? "Saved!" : "Failed";
-      setTimeout(()=>msg.textContent="",3000);
-    }catch(e){ alert("Invalid JSON"); }
-  };
-  load();
-</script>
-  `);
+  res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
-// -------- Start --------
+// Start
 app.listen(PORT, () => {
   console.log(`Quiz Lite running on ${PUBLIC_URL} (port ${PORT})`);
 });

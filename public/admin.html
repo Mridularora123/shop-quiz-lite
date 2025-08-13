@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Quiz Admin Panel</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 1200px; margin: auto; }
+    .question-card, .combo-card {
+      border: 1px solid #ccc; padding: 15px; margin-bottom: 15px;
+      border-radius: 6px; background: #fafafa;
+    }
+    .options, .when-conditions { margin-left: 20px; }
+    .option, .condition { display: flex; gap: 10px; margin-top: 5px; }
+    input, select {
+      padding: 5px; border: 1px solid #ccc; border-radius: 4px;
+    }
+    button {
+      padding: 5px 10px; border: none; border-radius: 4px;
+      cursor: pointer; background: #1976d2; color: #fff;
+    }
+    button.red { background: #d32f2f; }
+    button.green { background: #388e3c; }
+    h2, h3 { margin-top: 30px; }
+  </style>
+</head>
+<body>
+
+<h1>Quiz Config Editor</h1>
+
+<!-- Questions Section -->
+<h2>Questions</h2>
+<div id="questions"></div>
+<button class="green" onclick="addQuestion()">+ Add Question</button>
+
+<!-- Combo Rules Section -->
+<h2>Combo Rules (Match multiple answers → Recommend products)</h2>
+<div id="combos"></div>
+<button class="green" onclick="addCombo()">+ Add Combo Rule</button>
+
+<br><br>
+<button onclick="saveConfig()">💾 Save All Changes</button>
+
+<script>
+let config = { questions: [], combos: [], rules: [] };
+let p = new URL(location).searchParams.get("p") || "";
+
+// Load Config
+async function loadData() {
+  const res = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`);
+  config = await res.json();
+  renderQuestions();
+  renderCombos();
+}
+
+// ===== QUESTIONS =====
+function renderQuestions() {
+  const container = document.getElementById("questions");
+  container.innerHTML = "";
+  config.questions.forEach((q, qi) => {
+    const card = document.createElement("div");
+    card.className = "question-card";
+    card.innerHTML = `
+      <label>Question: <input value="${q.text}" onchange="updateQuestionText(${qi}, this.value)"></label>
+      <div class="options">
+        ${q.options.map((opt, oi) => `
+          <div class="option">
+            <input placeholder="Option Label" value="${opt.label}" onchange="updateOptionLabel(${qi}, ${oi}, this.value)">
+            <input placeholder="Recommend Products (comma handles)" value="${opt.recommend?.join(',') || ''}" onchange="updateOptionProducts(${qi}, ${oi}, this.value)">
+            <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
+          </div>
+        `).join("")}
+        <button onclick="addOption(${qi})">+ Add Option</button>
+      </div>
+      <br>
+      <button class="red" onclick="removeQuestion(${qi})">Delete Question</button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function addQuestion() { config.questions.push({ text: "New Question", options: [] }); renderQuestions(); }
+function removeQuestion(qi) { config.questions.splice(qi, 1); renderQuestions(); }
+function updateQuestionText(qi, val) { config.questions[qi].text = val; }
+function addOption(qi) { config.questions[qi].options.push({ label: "New Option", recommend: [] }); renderQuestions(); }
+function updateOptionLabel(qi, oi, val) { config.questions[qi].options[oi].label = val; }
+function updateOptionProducts(qi, oi, val) { config.questions[qi].options[oi].recommend = val.split(',').map(v=>v.trim()).filter(v=>v); }
+function removeOption(qi, oi) { config.questions[qi].options.splice(oi, 1); renderQuestions(); }
+
+// ===== COMBOS =====
+function renderCombos() {
+  const container = document.getElementById("combos");
+  container.innerHTML = "";
+  config.combos.forEach((c, ci) => {
+    const card = document.createElement("div");
+    card.className = "combo-card";
+    card.innerHTML = `
+      <div class="when-conditions">
+        <h4>When Conditions:</h4>
+        ${Object.entries(c.when || {}).map(([qid, val], wi) => `
+          <div class="condition">
+            <input placeholder="Question ID" value="${qid}" onchange="updateComboConditionKey(${ci}, '${qid}', this.value)">
+            <input placeholder="Value" value="${val}" onchange="updateComboConditionValue(${ci}, '${qid}', this.value)">
+            <button class="red" onclick="removeComboCondition(${ci}, '${qid}')">❌</button>
+          </div>
+        `).join("")}
+        <button onclick="addComboCondition(${ci})">+ Add Condition</button>
+      </div>
+      <div>
+        <h4>Recommend Products:</h4>
+        <input placeholder="Comma separated handles" value="${c.recommend?.join(',') || ''}" onchange="updateComboProducts(${ci}, this.value)">
+      </div>
+      <br>
+      <button class="red" onclick="removeCombo(${ci})">Delete Combo</button>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function addCombo() { config.combos.push({ when: {}, recommend: [] }); renderCombos(); }
+function removeCombo(ci) { config.combos.splice(ci, 1); renderCombos(); }
+function addComboCondition(ci) { config.combos[ci].when["questionId"] = "value"; renderCombos(); }
+function removeComboCondition(ci, qid) { delete config.combos[ci].when[qid]; renderCombos(); }
+function updateComboConditionKey(ci, oldKey, newKey) {
+  const val = config.combos[ci].when[oldKey];
+  delete config.combos[ci].when[oldKey];
+  config.combos[ci].when[newKey] = val;
+}
+function updateComboConditionValue(ci, qid, val) { config.combos[ci].when[qid] = val; }
+function updateComboProducts(ci, val) { config.combos[ci].recommend = val.split(',').map(v=>v.trim()).filter(v=>v); }
+
+// ===== SAVE =====
+async function saveConfig() {
+  await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config)
+  });
+  alert("Saved!");
+}
+
+loadData();
+</script>
+</body>
+</html>
