@@ -35,6 +35,9 @@
 
     // Shell
     const wrapper = h('div', { class: 'quiz-lite-wrapper' });
+    // set initial step class (step index starts at 0)
+    wrapper.classList.add('quiz-step-1');
+
     const qArea = h('div', { class: 'quiz-lite-question' });
     const dots = h('div', { class: 'quiz-dots', role: 'tablist', 'aria-label': 'Progress' });
     const nav = h('div', { class: 'quiz-lite-nav' });
@@ -264,6 +267,10 @@
     }
 
     function showStep() {
+
+      wrapper.classList.remove('quiz-step-1', 'quiz-step-2', 'quiz-step-3');
+      wrapper.classList.add(`quiz-step-${state.step + 1}`);
+
       const q = cfg.questions[state.step];
       qArea.innerHTML = '';
       if (!q) return;
