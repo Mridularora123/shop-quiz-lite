@@ -187,7 +187,6 @@ function renderQuestions() {
           <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
           <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
           <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
-          <input placeholder="Recommend handles (comma)" value="${(opt.recommend||[]).join(',')}" onchange="updateOptionRecs(${qi}, ${oi}, this.value)">
           <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
         </div>
       `;
