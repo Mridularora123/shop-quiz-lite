@@ -1,142 +1,284 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
   <title>Quiz Admin Panel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body { font-family: sans-serif; padding: 20px; max-width: 1200px; margin: auto; }
+    :root{
+      --blue:#1976d2; --green:#388e3c; --red:#d32f2f; --bg:#fafafa; --border:#dcdcdc;
+    }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; padding: 20px; max-width: 1200px; margin: auto; background:#fff; }
+    h1{ margin-top:0 }
     .question-card, .combo-card {
-      border: 1px solid #ccc; padding: 15px; margin-bottom: 15px;
-      border-radius: 6px; background: #fafafa;
+      border: 1px solid var(--border); padding: 15px; margin-bottom: 15px;
+      border-radius: 8px; background: var(--bg);
     }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
     .options, .when-conditions { margin-left: 20px; }
-    .option, .condition { display: flex; gap: 10px; margin-top: 5px; }
-    input, select {
-      padding: 5px; border: 1px solid #ccc; border-radius: 4px;
+    .option, .condition { display: flex; gap: 10px; margin-top: 6px; align-items:center; }
+    input, textarea, select {
+      padding: 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit;
     }
+    input[type="text"]{ min-width: 220px; }
     button {
-      padding: 5px 10px; border: none; border-radius: 4px;
-      cursor: pointer; background: #1976d2; color: #fff;
+      padding: 8px 12px; border: none; border-radius: 6px;
+      cursor: pointer; background: var(--blue); color: #fff;
     }
-    button.red { background: #d32f2f; }
-    button.green { background: #388e3c; }
-    h2, h3 { margin-top: 30px; }
+    button.red { background: var(--red); }
+    button.green { background: var(--green); }
+    button.ghost { background:#fff; color:#000; border:1px solid var(--border); }
+    .muted{ color:#666; font-size: 13px; }
+
+    /* Gate (password overlay) */
+    .gate{ position: fixed; inset: 0; background: rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; }
+    .gate.hidden{ display:none }
+    .panel{
+      background:#fff; border-radius:12px; padding:20px; width: min(520px, 92vw); box-shadow:0 10px 30px rgba(0,0,0,.2);
+    }
+    .err{ color: var(--red); margin-top:8px; min-height: 1em; }
   </style>
 </head>
 <body>
 
 <h1>Quiz Config Editor</h1>
+<p class="muted">Edit questions, options, and combo rules. Click “Save All Changes” when done.</p>
 
-<!-- Questions Section -->
+<div class="row" style="margin-bottom:14px">
+  <button class="ghost" id="reloadBtn">↻ Reload</button>
+  <button class="green" id="saveBtn">💾 Save All Changes</button>
+  <span id="flash" class="muted"></span>
+</div>
+
+<!-- Questions -->
 <h2>Questions</h2>
 <div id="questions"></div>
 <button class="green" onclick="addQuestion()">+ Add Question</button>
 
-<!-- Combo Rules Section -->
-<h2>Combo Rules (Match multiple answers → Recommend products)</h2>
+<!-- Combos -->
+<h2 style="margin-top:28px">Combo Rules <span class="muted">(Match multiple answers → Recommend handles)</span></h2>
 <div id="combos"></div>
 <button class="green" onclick="addCombo()">+ Add Combo Rule</button>
 
-<br><br>
-<button onclick="saveConfig()">💾 Save All Changes</button>
+<!-- Password overlay (only appears if password is required / wrong) -->
+<div class="gate hidden" id="gate">
+  <div class="panel">
+    <h3>Enter Admin Password</h3>
+    <p class="muted">Your changes are protected. Enter the password to load or save config.</p>
+    <div class="row">
+      <input id="pw" type="password" placeholder="Admin password" style="flex:1">
+      <button id="loginBtn">Open editor</button>
+    </div>
+    <div id="err" class="err"></div>
+  </div>
+</div>
 
 <script>
 let config = { questions: [], combos: [], rules: [] };
-let p = new URL(location).searchParams.get("p") || "";
+const qs = new URL(location.href).searchParams;
+const localKey = "quiz_admin_pw";
 
-// Load Config
+// prefer ?p= param; otherwise use localStorage
+function getPassword() {
+  const fromUrl = qs.get("p");
+  if (fromUrl) {
+    localStorage.setItem(localKey, fromUrl);
+    return fromUrl;
+  }
+  return localStorage.getItem(localKey) || "";
+}
+function setPassword(pw) {
+  localStorage.setItem(localKey, pw || "");
+}
+
+// API helpers
+async function apiGetConfig(pw) {
+  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(pw)}`);
+  if (r.status === 401) throw new Error("unauthorized");
+  return r.json();
+}
+async function apiSaveConfig(pw, body) {
+  const r = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(pw)}`, {
+    method: "PUT", headers: { "Content-Type":"application/json" }, body: JSON.stringify(body)
+  });
+  if (r.status === 401) throw new Error("unauthorized");
+  return r.json();
+}
+
+// UI helpers
+const el = sel => document.querySelector(sel);
+function flash(msg, ok=true) {
+  const f = el("#flash");
+  f.textContent = msg;
+  f.style.color = ok ? "#2e7d32" : "#d32f2f";
+  setTimeout(()=>{ f.textContent = ""; }, 2500);
+}
+
+// ===== LOAD =====
 async function loadData() {
-  const res = await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`);
-  config = await res.json();
-  renderQuestions();
-  renderCombos();
+  try {
+    const pw = getPassword();
+    const data = await apiGetConfig(pw);
+    // data is raw quiz.json
+    config = data;
+    if (!Array.isArray(config.questions)) config.questions = [];
+    if (!Array.isArray(config.combos)) config.combos = [];
+    if (!Array.isArray(config.rules)) config.rules = [];
+    renderQuestions();
+    renderCombos();
+    el("#gate").classList.add("hidden");
+  } catch (e) {
+    if (e.message === "unauthorized") {
+      el("#gate").classList.remove("hidden");
+      el("#err").textContent = "Password required or incorrect.";
+      el("#pw").focus();
+    } else {
+      flash("Failed to load config", false);
+      console.error(e);
+    }
+  }
+}
+
+// ===== SAVE =====
+async function saveConfig() {
+  try {
+    const pw = getPassword();
+    // keep original structure (questions, combos, rules)
+    await apiSaveConfig(pw, config);
+    flash("Saved!");
+  } catch (e) {
+    if (e.message === "unauthorized") {
+      el("#gate").classList.remove("hidden");
+      el("#err").textContent = "Password required or incorrect.";
+    } else {
+      flash("Failed to save", false);
+      console.error(e);
+    }
+  }
 }
 
 // ===== QUESTIONS =====
 function renderQuestions() {
-  const container = document.getElementById("questions");
+  const container = el("#questions");
   container.innerHTML = "";
   config.questions.forEach((q, qi) => {
     const card = document.createElement("div");
     card.className = "question-card";
     card.innerHTML = `
-      <label>Question: <input value="${q.text}" onchange="updateQuestionText(${qi}, this.value)"></label>
+      <div class="row" style="margin-bottom:8px">
+        <label>Question ID:&nbsp;<input type="text" value="${q.id || ""}" onchange="updateQuestionId(${qi}, this.value)"></label>
+        <label>Layout:&nbsp;<input type="text" value="${q.layout || ""}" placeholder="tone-faces / undertone / radios" onchange="updateQuestionLayout(${qi}, this.value)"></label>
+        <button class="red" onclick="removeQuestion(${qi})">Delete</button>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <label style="flex:1">Title:&nbsp;<input type="text" style="width:100%" value="${q.title || ""}" onchange="updateQuestionTitle(${qi}, this.value)"></label>
+      </div>
+
+      ${Array.isArray(q.stops) ? `
+      <div class="row" style="margin-bottom:8px">
+        <label style="flex:1">Stops (comma separated):&nbsp;<input type="text" style="width:100%" value="${q.stops.join(',')}" onchange="updateQuestionStops(${qi}, this.value)"></label>
+      </div>
+      ` : ``}
+
       <div class="options">
-        ${q.options.map((opt, oi) => `
+        <strong>Options</strong>
+        ${Array.isArray(q.options) ? q.options.map((opt, oi) => `
           <div class="option">
-            <input placeholder="Option Label" value="${opt.label}" onchange="updateOptionLabel(${qi}, ${oi}, this.value)">
-            <input placeholder="Recommend Products (comma handles)" value="${opt.recommend?.join(',') || ''}" onchange="updateOptionProducts(${qi}, ${oi}, this.value)">
+            <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
+            <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
+            <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
+            <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
+            <input placeholder="Recommend handles (comma)" value="${(opt.recommend||[]).join(',')}" onchange="updateOptionRecs(${qi}, ${oi}, this.value)">
             <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
           </div>
-        `).join("")}
-        <button onclick="addOption(${qi})">+ Add Option</button>
+        `).join("") : ""}
+        <div style="margin-top:6px"><button class="ghost" onclick="addOption(${qi})">+ Add Option</button></div>
       </div>
-      <br>
-      <button class="red" onclick="removeQuestion(${qi})">Delete Question</button>
     `;
     container.appendChild(card);
   });
 }
 
-function addQuestion() { config.questions.push({ text: "New Question", options: [] }); renderQuestions(); }
-function removeQuestion(qi) { config.questions.splice(qi, 1); renderQuestions(); }
-function updateQuestionText(qi, val) { config.questions[qi].text = val; }
-function addOption(qi) { config.questions[qi].options.push({ label: "New Option", recommend: [] }); renderQuestions(); }
-function updateOptionLabel(qi, oi, val) { config.questions[qi].options[oi].label = val; }
-function updateOptionProducts(qi, oi, val) { config.questions[qi].options[oi].recommend = val.split(',').map(v=>v.trim()).filter(v=>v); }
-function removeOption(qi, oi) { config.questions[qi].options.splice(oi, 1); renderQuestions(); }
+function addQuestion(){
+  config.questions.push({
+    id: "q" + (config.questions.length + 1),
+    type: "single",
+    layout: "radios",
+    title: "New Question",
+    options: []
+  });
+  renderQuestions();
+}
+function removeQuestion(qi){ config.questions.splice(qi,1); renderQuestions(); }
+
+function updateQuestionId(qi, v){ config.questions[qi].id = v; }
+function updateQuestionLayout(qi, v){ config.questions[qi].layout = v; }
+function updateQuestionTitle(qi, v){ config.questions[qi].title = v; }
+function updateQuestionStops(qi, v){ config.questions[qi].stops = v.split(",").map(s=>s.trim()).filter(Boolean); }
+
+function addOption(qi){ (config.questions[qi].options ||= []).push({ label:"New Option", value:"opt_"+Date.now(), recommend:[] }); renderQuestions(); }
+function removeOption(qi, oi){ config.questions[qi].options.splice(oi,1); renderQuestions(); }
+function updateOption(qi, oi, k, v){ (config.questions[qi].options[oi])[k] = v; }
+function updateOptionRecs(qi, oi, v){
+  const arr = v.split(",").map(x=>x.trim()).filter(Boolean);
+  (config.questions[qi].options[oi]).recommend = arr;
+}
 
 // ===== COMBOS =====
 function renderCombos() {
-  const container = document.getElementById("combos");
+  const container = el("#combos");
   container.innerHTML = "";
   config.combos.forEach((c, ci) => {
+    const when = c.when || {};
+    const recs = c.recommend || [];
     const card = document.createElement("div");
     card.className = "combo-card";
     card.innerHTML = `
+      <div><strong>When (all must match)</strong></div>
       <div class="when-conditions">
-        <h4>When Conditions:</h4>
-        ${Object.entries(c.when || {}).map(([qid, val], wi) => `
+        ${Object.entries(when).map(([qid, val]) => `
           <div class="condition">
-            <input placeholder="Question ID" value="${qid}" onchange="updateComboConditionKey(${ci}, '${qid}', this.value)">
-            <input placeholder="Value" value="${val}" onchange="updateComboConditionValue(${ci}, '${qid}', this.value)">
+            <input placeholder="Question ID" value="${qid}" onchange="updateComboKey(${ci}, '${qid}', this.value)">
+            <input placeholder="Value" value="${val}" onchange="updateComboVal(${ci}, '${qid}', this.value)">
             <button class="red" onclick="removeComboCondition(${ci}, '${qid}')">❌</button>
           </div>
         `).join("")}
-        <button onclick="addComboCondition(${ci})">+ Add Condition</button>
+        <div style="margin-top:6px"><button class="ghost" onclick="addComboCondition(${ci})">+ Add Condition</button></div>
       </div>
-      <div>
-        <h4>Recommend Products:</h4>
-        <input placeholder="Comma separated handles" value="${c.recommend?.join(',') || ''}" onchange="updateComboProducts(${ci}, this.value)">
+      <div class="row" style="margin-top:8px">
+        <label style="flex:1">Recommend handles (comma):&nbsp;<input type="text" style="width:100%" value="${recs.join(',')}" onchange="updateComboRecs(${ci}, this.value)"></label>
+        <button class="red" onclick="removeCombo(${ci})">Delete combo</button>
       </div>
-      <br>
-      <button class="red" onclick="removeCombo(${ci})">Delete Combo</button>
     `;
     container.appendChild(card);
   });
 }
-
-function addCombo() { config.combos.push({ when: {}, recommend: [] }); renderCombos(); }
-function removeCombo(ci) { config.combos.splice(ci, 1); renderCombos(); }
-function addComboCondition(ci) { config.combos[ci].when["questionId"] = "value"; renderCombos(); }
-function removeComboCondition(ci, qid) { delete config.combos[ci].when[qid]; renderCombos(); }
-function updateComboConditionKey(ci, oldKey, newKey) {
-  const val = config.combos[ci].when[oldKey];
-  delete config.combos[ci].when[oldKey];
-  config.combos[ci].when[newKey] = val;
+function addCombo(){ config.combos.push({ when:{}, recommend:[] }); renderCombos(); }
+function removeCombo(ci){ config.combos.splice(ci,1); renderCombos(); }
+function addComboCondition(ci){ config.combos[ci].when["questionId"] = "value"; renderCombos(); }
+function removeComboCondition(ci, key){ delete config.combos[ci].when[key]; renderCombos(); }
+function updateComboKey(ci, oldK, newK){
+  const val = config.combos[ci].when[oldK];
+  delete config.combos[ci].when[oldK];
+  config.combos[ci].when[newK] = val;
 }
-function updateComboConditionValue(ci, qid, val) { config.combos[ci].when[qid] = val; }
-function updateComboProducts(ci, val) { config.combos[ci].recommend = val.split(',').map(v=>v.trim()).filter(v=>v); }
+function updateComboVal(ci, k, v){ config.combos[ci].when[k] = v; }
+function updateComboRecs(ci, v){ config.combos[ci].recommend = v.split(",").map(x=>x.trim()).filter(Boolean); }
 
-// ===== SAVE =====
-async function saveConfig() {
-  await fetch(`/apps/quiz/admin/config?p=${encodeURIComponent(p)}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(config)
-  });
-  alert("Saved!");
-}
+// Buttons
+el("#reloadBtn").onclick = loadData;
+el("#saveBtn").onclick = saveConfig;
 
+// Gate actions
+el("#loginBtn").onclick = async () => {
+  const pw = el("#pw").value.trim();
+  if (!pw) { el("#err").textContent = "Password is required."; return; }
+  setPassword(pw);
+  el("#err").textContent = "";
+  await loadData();
+};
+
+// Init
 loadData();
 </script>
 </body>
