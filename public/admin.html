@@ -166,27 +166,42 @@ function renderQuestions() {
     const card = document.createElement("div");
     card.className = "question-card";
 
-    // Build option rows; add Description ONLY for undertone layout
+    // Build option rows
     const optionRows = Array.isArray(q.options) ? q.options.map((opt, oi) => {
-      if ((q.layout || '').toLowerCase() === 'undertone') {
-        // Undertone: label, value, description (new)
+      const layout = (q.layout || '').toLowerCase();
+
+      // Special UI for Step 1 (tone-faces)
+      if (layout === 'tone-faces') {
+        return `
+          <div class="option">
+            <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
+            <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
+            <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
+            <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
+            <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
+          </div>
+        `;
+      }
+
+      // Undertone (Step 2) — add Allowed Tones + Color + Description
+      if (layout === 'undertone') {
         return `
           <div class="option">
             <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
             <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
             <input placeholder="Description (optional)" value="${opt.desc || ""}" onchange="updateOption(${qi}, ${oi}, 'desc', this.value)">
-
+            <input placeholder="Color (e.g. #d48c76)" value="${opt.color || ""}" onchange="updateOption(${qi}, ${oi}, 'color', this.value)">
+            <input placeholder="Allowed Tones (comma values e.g. tone_light,tone_medium)" value="${(opt.allowedTones || []).join(',')}" onchange="updateOptionAllowedTones(${qi}, ${oi}, this.value)">
             <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
           </div>
         `;
       }
-      // Other layouts: keep existing fields unchanged
+
+      // Default (radios / multi)
       return `
         <div class="option">
           <input placeholder="Label" value="${opt.label || ""}" onchange="updateOption(${qi}, ${oi}, 'label', this.value)">
           <input placeholder="Value" value="${opt.value || ""}" onchange="updateOption(${qi}, ${oi}, 'value', this.value)">
-          <input placeholder="Image URL (optional)" value="${opt.image || ""}" onchange="updateOption(${qi}, ${oi}, 'image', this.value)">
-          <input placeholder="Group (slider index)" type="number" value="${opt.group ?? ""}" onchange="updateOption(${qi}, ${oi}, 'group', this.valueAsNumber)">
           <button class="red" onclick="removeOption(${qi}, ${oi})">❌</button>
         </div>
       `;
@@ -241,6 +256,10 @@ function updateOption(qi, oi, k, v){ (config.questions[qi].options[oi])[k] = v; 
 function updateOptionRecs(qi, oi, v){
   const arr = v.split(",").map(x=>x.trim()).filter(Boolean);
   (config.questions[qi].options[oi]).recommend = arr;
+}
+// NEW: update Allowed Tones (comma list → array of strings)
+function updateOptionAllowedTones(qi, oi, v){
+  config.questions[qi].options[oi].allowedTones = v.split(",").map(x=>x.trim()).filter(Boolean);
 }
 
 // ===== COMBOS =====

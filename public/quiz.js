@@ -30,12 +30,11 @@
   function renderQuiz(container, cfg) {
     const state = {
       step: 0,
-      answersMap: {} // will store: { tonefaces: 'tone_light', undertone: 'undertone_warm' }
+      answersMap: {} // { tonefaces: 'tone_light', undertone: 'undertone_warm' }
     };
 
     // Shell
     const wrapper = h('div', { class: 'quiz-lite-wrapper' });
-    // set initial step class (step index starts at 0)
     wrapper.classList.add('quiz-step-1');
 
     const qArea = h('div', { class: 'quiz-lite-question' });
@@ -53,7 +52,6 @@
 
     /* =========================
        Step 1: Tone slider + Faces
-       - Stores answer under q.id === "tonefaces"
     ========================== */
     function renderToneFaces(q, mount) {
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
@@ -108,8 +106,20 @@
           grid.querySelectorAll('.is-selected').forEach((el) => el.classList.remove('is-selected'));
           tile.classList.add('is-selected');
 
-          // store under tonefaces (matches your combos.when key)
-          state.answersMap[q.id] = String(opt.value);
+          const newTone = String(opt.value);
+          const prevTone = state.answersMap[q.id];
+
+          state.answersMap[q.id] = newTone;
+
+          // If undertone currently chosen is no longer allowed with the new tone → clear it
+          const undertoneQ = (cfg.questions || []).find(qq => qq.id === 'undertone');
+          if (undertoneQ) {
+            const allowed = filterUndertoneOptions(undertoneQ, newTone).map(o => String(o.value));
+            if (state.answersMap.undertone && !allowed.includes(String(state.answersMap.undertone))) {
+              delete state.answersMap.undertone;
+            }
+          }
+
           validateNext();
         });
 
@@ -157,15 +167,33 @@
     }
 
     /* =========================
-       Step 2: Undertone
+       Step 2: Undertone (FILTERED by Step 1 using allowedTones)
        - Stores answer under "undertone"
     ========================== */
+
+    function filterUndertoneOptions(q, selectedTone) {
+      // If no selected tone or no allowedTones provided, show everything
+      if (!selectedTone) return q.options || [];
+      return (q.options || []).filter(opt => {
+        const list = Array.isArray(opt.allowedTones) ? opt.allowedTones.map(String) : null;
+        return !list || list.includes(String(selectedTone));
+      });
+    }
+
     function renderUndertone(q, mount) {
+      const selectedTone = state.answersMap['tonefaces'];
+      const options = filterUndertoneOptions(q, selectedTone);
+
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
-      if (q.subtitle) mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
+      if (!selectedTone) {
+        mount.appendChild(h('p', { class: 'q-sub' }, ['Please select your skin tone first.']));
+      } else if (q.subtitle) {
+        mount.appendChild(h('p', { class: 'q-sub' }, [q.subtitle]));
+      }
 
       const row = h('div', { class: 'undertone-row' });
-      (q.options || []).forEach((opt) => {
+
+      options.forEach((opt) => {
         const id = `ut-${opt.value}`;
         const card = h('label', { class: 'undertone-card', for: id });
 
@@ -201,11 +229,13 @@
       });
 
       mount.appendChild(row);
+
+      // You can decide whether to force a choice here. Keeping it flexible:
       nextBtn.disabled = false; // allow continue even if skipped
     }
 
     /* =========================
-       Fallback renderer (radios/checkboxes)
+       Default radios/checkboxes
     ========================== */
     function renderDefault(q, mount) {
       if (q.title) mount.appendChild(h('h3', {}, [q.title]));
@@ -267,7 +297,6 @@
     }
 
     function showStep() {
-
       wrapper.classList.remove('quiz-step-1', 'quiz-step-2', 'quiz-step-3');
       wrapper.classList.add(`quiz-step-${state.step + 1}`);
 
@@ -278,7 +307,7 @@
       if (q.layout === 'tone-faces') {
         renderToneFaces(q, qArea);
       } else if (q.layout === 'undertone') {
-        renderUndertone(q, qArea);
+        renderUndertone(q, qArea); // <-- filtered by allowedTones + keeps card UI
       } else {
         renderDefault(q, qArea);
       }
@@ -288,6 +317,9 @@
       nextBtn.textContent = state.step === cfg.questions.length - 1 ? 'See results' : 'Continue';
     }
 
+    /* =========================
+       Results helpers
+    ========================== */
     function formatPrice(amount, currencyCode) {
       const formatter = new Intl.NumberFormat('en-CA', {
         style: 'currency',
@@ -295,15 +327,9 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
-
-      // Example: "$45.00 CAD"
       return `${formatter.format(amount)} ${currencyCode || 'CAD'}`;
     }
 
-
-    /* =========================
-       Results helpers
-    ========================== */
     function cardHtml(p) {
       const title = p.title || (p.handle ? p.handle.replace(/-/g, ' ') : 'Product');
       const url = p.handle ? `/products/${p.handle}` : '#';
@@ -320,7 +346,6 @@
   `;
     }
 
-
     function detectCurrency() {
       try {
         if (window.Shopify && Shopify.currency && Shopify.currency.active) return Shopify.currency.active;
@@ -329,14 +354,6 @@
         document.querySelector('meta[itemprop="priceCurrency"]') ||
         document.querySelector('meta[property="og:price:currency"]');
       return m ? m.getAttribute('content') : '';
-    }
-
-    function formatMoney(amount, currency) {
-      if (amount == null) return '';
-      const n = Number(amount);
-      if (Number.isNaN(n)) return '';
-      // amount is in major units (e.g. 12.34). If you feed cents, divide by 100 first.
-      return `${currency ? currency + ' ' : ''}${n.toFixed(2)}`;
     }
 
     function fetchProductByHandle(handle) {
@@ -373,7 +390,6 @@
           currency: ''
         }));
     }
-
 
     /* =========================
        Submit: combos first, fallback to API

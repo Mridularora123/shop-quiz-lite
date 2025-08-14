@@ -23,13 +23,30 @@
       "layout": "undertone",
       "title": "What’s your Undertone?",
       "options": [
-        { "label": "WARM",    "value": "undertone_warm",    "desc": "Yellow–peach–golden side.", "color": "#d48c76" },
-        { "label": "NEUTRAL", "value": "undertone_neutral", "desc": "Not too pink, not too yellow.", "color": "#b9c7c9" },
-        { "label": "COOL",    "value": "undertone_cool",    "desc": "Pink, red, or blue side.", "color": "#b8a6f3" }
+        {
+          "label": "WARM",
+          "value": "undertone_warm",
+          "desc": "Yellow–peach–golden side.",
+          "color": "#d48c76",
+          "allowedTones": ["tone_light", "tone_light_medium", "tone_medium", "tone_medium_tan", "tone_medium_deep", "tone_deep"]
+        },
+        {
+          "label": "NEUTRAL",
+          "value": "undertone_neutral",
+          "desc": "Not too pink, not too yellow.",
+          "color": "#b9c7c9",
+          "allowedTones": ["tone_light", "tone_light_medium", "tone_medium", "tone_medium_tan", "tone_medium_deep", "tone_deep"]
+        },
+        {
+          "label": "COOL",
+          "value": "undertone_cool",
+          "desc": "Pink, red, or blue side.",
+          "color": "#b8a6f3",
+          "allowedTones": ["tone_light", "tone_light_medium", "tone_medium", "tone_medium_tan", "tone_medium_deep", "tone_deep"]
+        }
       ]
     }
   ],
-
   "combos": [
     { "when": { "tonefaces": "tone_light", "undertone": "undertone_warm" },    "recommend": ["bb-cream","hydrating-facial-cleanser","liquid-lip-balm","tinted-moisturizer"] },
     { "when": { "tonefaces": "tone_light", "undertone": "undertone_neutral" }, "recommend": ["satin-foundation","tinted-moisturizer","pro-cheek-palette-1","dual-tip-eyeliner"] },
